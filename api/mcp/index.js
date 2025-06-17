@@ -132,49 +132,33 @@ function handleJsonRpc(body, sessionId) {
         
         log(`📋 Session initialized: ${sessionId}`, params);
         
-        // 강제로 tools만 활성화하도록 capabilities 재정의
+        // 매우 엄격한 tools-only capabilities - 다른 모든 기능 제거
         const finalCapabilities = {
           tools: { 
-            listChanged: true,
-            supportsProgress: false,
-            count: 4
-          },
-          logging: {}
-          // resources와 prompts 제거하여 tools/list를 강제로 호출하게 함
+            listChanged: true
+          }
+          // logging, resources, prompts 모두 제거
         };
         
-        log(`🔍 FINAL CAPABILITIES BEING SENT:`, finalCapabilities);
+        log(`🔍 STRICT TOOLS-ONLY CAPABILITIES:`, finalCapabilities);
         
         const initResponse = {
           jsonrpc: "2.0",
           id,
           result: {
             protocolVersion: "2024-11-05",
-            capabilities: finalCapabilities,  // 수정된 capabilities 사용
+            capabilities: finalCapabilities,
             serverInfo: {
               name: "Calculator MCP Server",
               version: "1.0.0",
-              description: "A mathematical calculator supporting add, subtract, multiply, divide operations"
-            },
-            instructions: "🧮 Calculator MCP Server Ready! Available tools: add, subtract, multiply, divide. Server will respond to both tools/list requests and direct calculation requests.",
-            
-            // Include preview of available features (tools only)
-            preview: {
-              tools: ["add", "subtract", "multiply", "divide"]
-            },
-            
-            // Include basic tool info directly in initialize for immediate use
-            availableTools: {
-              add: "Add two numbers together",
-              subtract: "Subtract second number from first",
-              multiply: "Multiply two numbers together", 
-              divide: "Divide first number by second"
+              description: "Mathematical calculator with 4 tools: add, subtract, multiply, divide"
             }
+            // 다른 모든 필드 제거하여 클라이언트가 tools/list를 호출하도록 강제
           }
         };
         
-        log(`🔍 INITIALIZE RESPONSE CAPABILITIES:`, finalCapabilities);
-        log(`📤 Full initialize response:`, initResponse);
+        log(`🔍 STRICT INITIALIZE RESPONSE:`, finalCapabilities);
+        log(`📤 MINIMAL Initialize response to force tools/list:`, initResponse);
         
         return initResponse;
 
@@ -340,6 +324,15 @@ export default function handler(req, res) {
 
   // Get or create session ID (MCP spec: Mcp-Session-Id header)
   let sessionId = req.headers['mcp-session-id']; // Read from request header (lowercase)
+  
+  // 다양한 헤더 형식 시도
+  if (!sessionId) {
+    sessionId = req.headers['x-session-id'] || req.headers['session-id'] || req.headers['sessionid'];
+    if (sessionId) {
+      log(`🔍 Found session ID in alternative header: ${sessionId}`);
+    }
+  }
+  
   const isInitialize = req.body?.method === 'initialize';
   
   if (isInitialize) {
@@ -400,6 +393,30 @@ export default function handler(req, res) {
       }
     }
   } else if (req.method === 'GET') {
+    // GET 요청에서도 세션 ID 재확인 (헤더에서 추출)
+    if (!sessionId) {
+      sessionId = req.headers['mcp-session-id'];
+      log(`🔍 GET request - extracted session ID: ${sessionId}`);
+    }
+    
+    // 세션 ID가 여전히 없으면 에러
+    if (!sessionId) {
+      log(`❌ GET request missing session ID completely`);
+      res.status(400).json({
+        error: "Missing Mcp-Session-Id header for SSE stream"
+      });
+      return;
+    }
+    
+    // 세션 존재 확인
+    if (!sessions.has(sessionId)) {
+      log(`❌ GET request - invalid session ID: ${sessionId}`);
+      res.status(404).json({
+        error: "Session not found for SSE stream"
+      });
+      return;
+    }
+    
     // SSE stream for server-to-client communication
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
