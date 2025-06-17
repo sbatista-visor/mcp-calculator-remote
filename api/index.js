@@ -29,39 +29,94 @@ export default function handler(req, res) {
     return;
   }
 
-  // POST 요청 시 MCP 표준에 맞는 JSON-RPC 2.0 응답
+  // POST 요청 시 Claude URL Integration을 위한 직접적인 응답
   if (req.method === 'POST') {
-    // MCP 초기화 플로우를 위한 응답
+    // Claude가 바로 사용할 수 있는 형태의 응답
     const mcpResponse = {
       jsonrpc: "2.0",
       id: req.body?.id || "handshake",
       result: {
-        // MCP 서버 정보
+        // 서버 정보
         serverInfo: {
           name: "Calculator MCP Server",
-          version: "1.0.0"
+          version: "1.0.0",
+          description: "Mathematical calculator with basic arithmetic operations"
         },
-        // MCP 프로토콜 버전
+        
+        // 프로토콜 정보
         protocolVersion: "2024-11-05",
-        // 지원하는 기능들
+        
+        // 기능
         capabilities: {
           tools: { listChanged: true },
           logging: {},
           resources: {},
           prompts: {}
         },
-        // 초기화 완료를 알리는 플래그
-        initialized: false,
-        // 다음 단계 지시
-        nextStep: {
-          method: "initialize",
-          endpoint: "/api/initialize",
-          required: true
-        }
+        
+        // 즉시 사용 가능한 도구들
+        tools: [
+          {
+            name: "add",
+            description: "Add two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "First number" },
+                b: { type: "number", description: "Second number" }
+              },
+              required: ["a", "b"]
+            }
+          },
+          {
+            name: "subtract",
+            description: "Subtract second number from first number",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "First number" },
+                b: { type: "number", description: "Second number" }
+              },
+              required: ["a", "b"]
+            }
+          },
+          {
+            name: "multiply",
+            description: "Multiply two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "First number" },
+                b: { type: "number", description: "Second number" }
+              },
+              required: ["a", "b"]
+            }
+          },
+          {
+            name: "divide",
+            description: "Divide first number by second number",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "Dividend" },
+                b: { type: "number", description: "Divisor (cannot be zero)" }
+              },
+              required: ["a", "b"]
+            }
+          }
+        ],
+        
+        // 도구 호출 방법
+        toolCallEndpoint: "/api/tools-call",
+        
+        // 상태
+        status: "ready",
+        initialized: true,
+        message: "Calculator server ready. Use add, subtract, multiply, or divide tools."
       }
     };
     
-    log("📤 Sending MCP discovery response", mcpResponse);
+    log("📤 Sending all-in-one MCP response", mcpResponse);
     res.json(mcpResponse);
     return;
   }
