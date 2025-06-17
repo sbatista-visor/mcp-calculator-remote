@@ -117,15 +117,39 @@ function handleJsonRpc(body, sessionId) {
           clientInfo: params?.clientInfo || {}
         });
         
-        log(`📋 Session initialized: ${sessionId}`);
+        log(`📋 Session initialized: ${sessionId}`, params);
         return {
           jsonrpc: "2.0",
           id,
           result: {
             protocolVersion: "2024-11-05",
-            capabilities,
-            serverInfo,
-            instructions: "Calculator MCP Server - Ready! Use tools: add, subtract, multiply, divide"
+            capabilities: {
+              tools: { 
+                listChanged: true,
+                supportsProgress: false
+              },
+              logging: {},
+              resources: { 
+                subscribe: false, 
+                listChanged: true 
+              },
+              prompts: { 
+                listChanged: true 
+              }
+            },
+            serverInfo: {
+              name: "Calculator MCP Server",
+              version: "1.0.0",
+              description: "A mathematical calculator supporting add, subtract, multiply, divide operations"
+            },
+            instructions: "This server provides calculator tools. Available tools: add, subtract, multiply, divide. Use tools/list to see all available tools, prompts/list for prompts, and resources/list for resources.",
+            
+            // Include preview of available features
+            preview: {
+              tools: ["add", "subtract", "multiply", "divide"],
+              prompts: ["calculate"],
+              resources: ["calculator://help"]
+            }
           }
         };
 
@@ -293,10 +317,11 @@ export default function handler(req, res) {
 
   // Get or create session ID
   let sessionId = req.headers['mcp-session-id'];
-  if (!sessionId) {
+  if (!sessionId || req.body?.method === 'initialize') {
+    // Always create new session for initialize requests
     sessionId = uuidv4();
-    res.setHeader('Mcp-Session-Id', sessionId);
   }
+  res.setHeader('Mcp-Session-Id', sessionId);
 
   if (req.method === 'POST') {
     // Handle JSON-RPC messages
