@@ -19,6 +19,8 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+  res.setHeader('X-MCP-Transport', 'http');
+  res.setHeader('X-MCP-Ready', 'true');
 
   log(`📡 ${req.method} /api/index - ${req.headers['user-agent']}`);
 
@@ -27,29 +29,39 @@ export default function handler(req, res) {
     return;
   }
 
-  // POST 요청 시 MCP 표준에 맞는 간단한 응답
+  // POST 요청 시 MCP 표준에 맞는 JSON-RPC 2.0 응답
   if (req.method === 'POST') {
+    // MCP over HTTP는 JSON-RPC 2.0를 사용할 수 있음
     const mcpResponse = {
-      protocol: "mcp/2024-11-05",
-      status: "ready",
-      serverInfo: {
-        name: "Calculator MCP Server",
-        version: "1.0.0"
+      jsonrpc: "2.0",
+      id: req.body?.id || "handshake",
+      result: {
+        protocolVersion: "2024-11-05",
+        serverInfo: {
+          name: "Calculator MCP Server",
+          version: "1.0.0"
+        },
+        capabilities: {
+          tools: { listChanged: true },
+          logging: {},
+          resources: {},
+          prompts: {}
+        }
       },
-      capabilities: {
-        tools: { listChanged: true },
-        logging: {},
-        resources: {},
-        prompts: {}
-      },
-      endpoints: {
-        initialize: "/api/initialize",
-        tools_list: "/api/tools-list", 
-        tools_call: "/api/tools-call"
+      // MCP specific fields
+      mcp: {
+        protocol: "mcp/2024-11-05",
+        transport: "http",
+        endpoints: {
+          initialize: "/api/initialize",
+          tools_list: "/api/tools-list", 
+          tools_call: "/api/tools-call"
+        },
+        ready: true
       }
     };
     
-    log("📤 Sending MCP handshake response", mcpResponse);
+    log("📤 Sending MCP JSON-RPC handshake response", mcpResponse);
     res.json(mcpResponse);
     return;
   }
