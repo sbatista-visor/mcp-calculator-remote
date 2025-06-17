@@ -27,6 +27,34 @@ export default function handler(req, res) {
     return;
   }
 
+  // POST 요청 시 MCP 표준에 맞는 간단한 응답
+  if (req.method === 'POST') {
+    const mcpResponse = {
+      protocol: "mcp/2024-11-05",
+      status: "ready",
+      serverInfo: {
+        name: "Calculator MCP Server",
+        version: "1.0.0"
+      },
+      capabilities: {
+        tools: { listChanged: true },
+        logging: {},
+        resources: {},
+        prompts: {}
+      },
+      endpoints: {
+        initialize: "/api/initialize",
+        tools_list: "/api/tools-list", 
+        tools_call: "/api/tools-call"
+      }
+    };
+    
+    log("📤 Sending MCP handshake response", mcpResponse);
+    res.json(mcpResponse);
+    return;
+  }
+
+  // GET 요청 시 상세한 서버 정보 반환
   const tools = [
     { name: "add", description: "Add two numbers together" },
     { name: "subtract", description: "Subtract second number from first number" },
@@ -56,6 +84,6 @@ export default function handler(req, res) {
     timestamp: new Date().toISOString()
   };
   
-  log("📤 Sending server info", response);
+  log("📤 Sending full server info", response);
   res.json(response);
 }
