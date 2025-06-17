@@ -36,8 +36,8 @@ const serverInfo = {
 const capabilities = {
   tools: { listChanged: true },
   logging: {},
-  resources: {},
-  prompts: {}
+  resources: { subscribe: false, listChanged: true },
+  prompts: { listChanged: true }
 };
 
 const tools = [
@@ -136,6 +136,79 @@ function handleJsonRpc(body, sessionId) {
           id,
           result: { tools }
         };
+
+      case "prompts/list":
+        log(`📝 Prompts list requested`);
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: { 
+            prompts: [
+              {
+                name: "calculate",
+                description: "Perform a mathematical calculation",
+                arguments: [
+                  {
+                    name: "operation",
+                    description: "The operation to perform (add, subtract, multiply, divide)",
+                    required: true
+                  },
+                  {
+                    name: "a",
+                    description: "First number",
+                    required: true
+                  },
+                  {
+                    name: "b", 
+                    description: "Second number",
+                    required: true
+                  }
+                ]
+              }
+            ]
+          }
+        };
+
+      case "resources/list":
+        log(`📦 Resources list requested`);
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: { 
+            resources: [
+              {
+                uri: "calculator://help",
+                name: "Calculator Help",
+                description: "Help documentation for the calculator",
+                mimeType: "text/plain"
+              }
+            ]
+          }
+        };
+
+      case "resources/read":
+        log(`📖 Resource read requested`, params);
+        if (params?.uri === "calculator://help") {
+          return {
+            jsonrpc: "2.0",
+            id,
+            result: {
+              contents: [
+                {
+                  uri: "calculator://help",
+                  mimeType: "text/plain",
+                  text: "Calculator MCP Server Help\n\nAvailable tools:\n- add: Add two numbers\n- subtract: Subtract two numbers\n- multiply: Multiply two numbers\n- divide: Divide two numbers\n\nUsage: Call tools with parameters {a: number, b: number}"
+                }
+              ]
+            }
+          };
+        } else {
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32602, message: "Invalid resource URI" }
+          };
+        }
 
       case "tools/call":
         const { name, arguments: args } = params;
