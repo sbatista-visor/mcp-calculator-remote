@@ -319,11 +319,41 @@ export default function handler(req, res) {
 
   // Get or create session ID (MCP spec: Mcp-Session-Id header)
   let sessionId = req.headers['mcp-session-id']; // Read from request header (lowercase)
-  if (!sessionId || req.body?.method === 'initialize') {
+  const isInitialize = req.body?.method === 'initialize';
+  
+  if (isInitialize) {
     // Always create new session for initialize requests
     sessionId = uuidv4();
+    log(`🆕 Creating new session for initialize: ${sessionId}`);
+  } else if (!sessionId) {
+    // Non-initialize requests without session ID should be rejected
+    log(`❌ Missing session ID for non-initialize request`);
+    res.status(400).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32600,
+        message: "Missing Mcp-Session-Id header. Initialize session first."
+      }
+    });
+    return;
+  } else {
+    // Verify session exists
+    if (!sessions.has(sessionId)) {
+      log(`❌ Invalid session ID: ${sessionId}`);
+      res.status(404).json({
+        jsonrpc: "2.0", 
+        error: {
+          code: -32002,
+          message: "Session not found. Please initialize a new session."
+        }
+      });
+      return;
+    }
+    log(`✅ Using existing session: ${sessionId}`);
   }
-  res.setHeader('Mcp-Session-Id', sessionId); // Set response header (correct case)
+  
+  // Always set session header in response
+  res.setHeader('Mcp-Session-Id', sessionId);
 
   if (req.method === 'POST') {
     // Handle JSON-RPC messages
@@ -357,11 +387,29 @@ export default function handler(req, res) {
     
     log(`📡 SSE stream opened for session: ${sessionId}`);
     
-    // Send initial connection event
+    // Send initial connection event with session info
     res.write(`data: ${JSON.stringify({
       jsonrpc: "2.0",
       method: "server/ready",
-      params: { sessionId }
+      params: { 
+        sessionId,
+        status: "connected",
+        serverInfo: {
+          name: "Calculator MCP Server",
+          version: "1.0.0"
+        },
+        availableTools: ["add", "subtract", "multiply", "divide"]
+      }
+    })}\n\n`);
+    
+    // Send tools announcement
+    res.write(`data: ${JSON.stringify({
+      jsonrpc: "2.0", 
+      method: "tools/available",
+      params: {
+        tools: ["add", "subtract", "multiply", "divide"],
+        message: "Calculator tools are ready for use"
+      }
     })}\n\n`);
     
     // Shorter keepalive to avoid Vercel timeout
@@ -369,21 +417,25 @@ export default function handler(req, res) {
       res.write(`data: ${JSON.stringify({
         jsonrpc: "2.0",
         method: "ping",
-        params: { timestamp: new Date().toISOString() }
+        params: { timestamp: new Date().toISOString(), sessionId }
       })}\n\n`);
     }, 25000); // 25 seconds instead of 30
     
-    // Auto-close after 50 seconds to avoid Vercel timeout
+    // Auto-close after 45 seconds to avoid Vercel timeout
     const autoClose = setTimeout(() => {
       clearInterval(keepAlive);
       res.write(`data: ${JSON.stringify({
         jsonrpc: "2.0",
         method: "server/closing",
-        params: { reason: "timeout_prevention" }
+        params: { 
+          reason: "timeout_prevention",
+          sessionId,
+          message: "Session remains active. Reconnect if needed."
+        }
       })}\n\n`);
       res.end();
       log(`⏰ SSE stream auto-closed for session: ${sessionId}`);
-    }, 50000);
+    }, 45000);
     
     // Cleanup on client disconnect
     req.on('close', () => {
