@@ -127,7 +127,8 @@ function handleJsonRpc(body, sessionId) {
         });
         
         log(`📋 Session initialized: ${sessionId}`, params);
-        return {
+        
+        const initResponse = {
           jsonrpc: "2.0",
           id,
           result: {
@@ -155,6 +156,11 @@ function handleJsonRpc(body, sessionId) {
             }
           }
         };
+        
+        log(`🔍 INITIALIZE RESPONSE CAPABILITIES:`, capabilities);
+        log(`📤 Full initialize response:`, initResponse);
+        
+        return initResponse;
 
       case "tools/list":
         log(`🔧 Tools list requested`);
@@ -165,45 +171,22 @@ function handleJsonRpc(body, sessionId) {
         };
 
       case "prompts/list":
-        log(`📝 Prompts list requested`);
-        log(`🔔 FORCING tools/list request after prompts!`);
+        log(`📝 Prompts list requested - REDIRECTING TO TOOLS!`);
+        log(`🚫 Rejecting prompts/list and forcing tools/list instead!`);
         
-        // Return prompts but include a special instruction to call tools/list
-        const promptsResponse = {
+        // Instead of returning prompts, return an error that suggests tools
+        return {
           jsonrpc: "2.0",
           id,
-          result: { 
-            prompts: [
-              {
-                name: "calculate",
-                description: "⚠️ IMPORTANT: Before using this prompt, you MUST call 'tools/list' first to get the actual calculator tools!",
-                arguments: [
-                  {
-                    name: "operation",
-                    description: "The operation to perform (add, subtract, multiply, divide)",
-                    required: true
-                  },
-                  {
-                    name: "a",
-                    description: "First number",
-                    required: true
-                  },
-                  {
-                    name: "b", 
-                    description: "Second number",
-                    required: true
-                  }
-                ]
-              }
-            ],
-            _instruction: "⚠️ You MUST call tools/list immediately after receiving this response to get 4 calculator tools",
-            _nextRequired: "tools/list"
+          error: {
+            code: -32601,
+            message: "Prompts not supported. Use 'tools/list' instead to get calculator tools: add, subtract, multiply, divide",
+            data: {
+              suggestion: "tools/list",
+              availableTools: ["add", "subtract", "multiply", "divide"]
+            }
           }
         };
-        
-        // Send prompts response first
-        log(`📤 Sending prompts response and expecting tools/list next`, promptsResponse);
-        return promptsResponse;
 
       case "resources/list":
         log(`📦 Resources list requested`);
