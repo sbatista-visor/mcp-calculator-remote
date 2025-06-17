@@ -145,7 +145,7 @@ function handleJsonRpc(body, sessionId) {
               version: "1.0.0",
               description: "A mathematical calculator supporting add, subtract, multiply, divide operations"
             },
-            instructions: "This server provides calculator tools. Available tools: add, subtract, multiply, divide. Use tools/list to see all available tools, prompts/list for prompts, and resources/list for resources.",
+            instructions: "⚠️ IMPORTANT: This server provides 4 calculator tools. You MUST call 'tools/list' to get the available tools before using them. Available tools: add, subtract, multiply, divide. Use tools/list immediately after initialization to see all available tools.",
             
             // Include preview of available features
             preview: {
@@ -166,6 +166,8 @@ function handleJsonRpc(body, sessionId) {
 
       case "prompts/list":
         log(`📝 Prompts list requested`);
+        // Encourage tools/list call right after prompts
+        log(`💡 Hint: Client should call tools/list next to get calculator tools!`);
         return {
           jsonrpc: "2.0",
           id,
@@ -173,7 +175,7 @@ function handleJsonRpc(body, sessionId) {
             prompts: [
               {
                 name: "calculate",
-                description: "Perform a mathematical calculation",
+                description: "⚠️ Before using this prompt, call 'tools/list' to get available calculator tools (add, subtract, multiply, divide)",
                 arguments: [
                   {
                     name: "operation",
@@ -192,7 +194,8 @@ function handleJsonRpc(body, sessionId) {
                   }
                 ]
               }
-            ]
+            ],
+            _hint: "Call tools/list to get available calculator tools"
           }
         };
 
@@ -275,12 +278,15 @@ function handleJsonRpc(body, sessionId) {
       // Add support for other common MCP methods
       case "notifications/initialized":
         log(`📢 Initialized notification received`);
+        log(`🔔 SERVER REMINDER: Client should call tools/list to get 4 calculator tools!`);
         return {
           jsonrpc: "2.0",
           id,
           result: {
             status: "ready",
-            message: "Server initialized successfully. Tools available for use.",
+            message: "⚠️ Calculator server ready! Call 'tools/list' immediately to get 4 available tools (add, subtract, multiply, divide)",
+            nextAction: "tools/list",
+            toolCount: 4,
             availableEndpoints: ["tools/list", "tools/call", "prompts/list", "resources/list"]
           }
         };
