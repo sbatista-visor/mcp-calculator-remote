@@ -132,12 +132,25 @@ function handleJsonRpc(body, sessionId) {
         
         log(`📋 Session initialized: ${sessionId}`, params);
         
+        // 강제로 tools만 활성화하도록 capabilities 재정의
+        const finalCapabilities = {
+          tools: { 
+            listChanged: true,
+            supportsProgress: false,
+            count: 4
+          },
+          logging: {}
+          // resources와 prompts 제거하여 tools/list를 강제로 호출하게 함
+        };
+        
+        log(`🔍 FINAL CAPABILITIES BEING SENT:`, finalCapabilities);
+        
         const initResponse = {
           jsonrpc: "2.0",
           id,
           result: {
             protocolVersion: "2024-11-05",
-            capabilities,  // Use the global capabilities variable
+            capabilities: finalCapabilities,  // 수정된 capabilities 사용
             serverInfo: {
               name: "Calculator MCP Server",
               version: "1.0.0",
@@ -147,8 +160,7 @@ function handleJsonRpc(body, sessionId) {
             
             // Include preview of available features (tools only)
             preview: {
-              tools: ["add", "subtract", "multiply", "divide"],
-              resources: ["calculator://help"]
+              tools: ["add", "subtract", "multiply", "divide"]
             },
             
             // Include basic tool info directly in initialize for immediate use
@@ -161,18 +173,21 @@ function handleJsonRpc(body, sessionId) {
           }
         };
         
-        log(`🔍 INITIALIZE RESPONSE CAPABILITIES:`, capabilities);
+        log(`🔍 INITIALIZE RESPONSE CAPABILITIES:`, finalCapabilities);
         log(`📤 Full initialize response:`, initResponse);
         
         return initResponse;
 
       case "tools/list":
-        log(`🔧 Tools list requested`);
-        return {
+        log(`🔧 Tools list requested - THIS SHOULD ALWAYS BE CALLED!`);
+        log(`🔧 Session ID: ${sessionId}, Request ID: ${id}`);
+        const toolsResponse = {
           jsonrpc: "2.0",
           id,
           result: { tools }
         };
+        log(`🔧 Tools list response:`, toolsResponse);
+        return toolsResponse;
 
       case "tools/call":
         const { name, arguments: args } = params;
@@ -311,6 +326,12 @@ export default function handler(req, res) {
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
 
   log(`🌐 ${req.method} /api/mcp - ${req.headers['user-agent']} - Content-Type: ${req.headers['content-type']}`);
+  
+  // IMMEDIATE method logging for POST requests
+  if (req.method === 'POST' && req.body) {
+    log(`🔍 IMMEDIATE METHOD CHECK: ${req.body.method || 'NO_METHOD'}`);
+    log(`🔍 IMMEDIATE BODY CHECK:`, req.body);
+  }
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
