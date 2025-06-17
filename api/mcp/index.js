@@ -1,0 +1,262 @@
+// Complete MCP HTTP Transport Implementation
+// Single endpoint for all MCP communication: /api/mcp
+
+import { v4 as uuidv4 } from 'uuid';
+
+// Session management
+const sessions = new Map();
+
+// Logging function
+function log(message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${message}`;
+  
+  if (data) {
+    console.log(`${logEntry}\nData:`, JSON.stringify(data, null, 2));
+  } else {
+    console.log(logEntry);
+  }
+}
+
+// Calculator functions
+function add(a, b) { return a + b; }
+function subtract(a, b) { return a - b; }
+function multiply(a, b) { return a * b; }
+function divide(a, b) {
+  if (b === 0) throw new Error("Division by zero");
+  return a / b;
+}
+
+// MCP Server capabilities
+const serverInfo = {
+  name: "Calculator MCP Server",
+  version: "1.0.0"
+};
+
+const capabilities = {
+  tools: { listChanged: true },
+  logging: {},
+  resources: {},
+  prompts: {}
+};
+
+const tools = [
+  {
+    name: "add",
+    description: "Add two numbers together",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "number", description: "First number" },
+        b: { type: "number", description: "Second number" }
+      },
+      required: ["a", "b"]
+    }
+  },
+  {
+    name: "subtract",
+    description: "Subtract second number from first number",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "number", description: "First number" },
+        b: { type: "number", description: "Second number" }
+      },
+      required: ["a", "b"]
+    }
+  },
+  {
+    name: "multiply",
+    description: "Multiply two numbers together",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "number", description: "First number" },
+        b: { type: "number", description: "Second number" }
+      },
+      required: ["a", "b"]
+    }
+  },
+  {
+    name: "divide",
+    description: "Divide first number by second number",
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "number", description: "Dividend" },
+        b: { type: "number", description: "Divisor (cannot be zero)" }
+      },
+      required: ["a", "b"]
+    }
+  }
+];
+
+// Handle JSON-RPC requests
+function handleJsonRpc(body, sessionId) {
+  const { jsonrpc, id, method, params } = body;
+  
+  // Validate JSON-RPC 2.0
+  if (jsonrpc !== "2.0") {
+    return {
+      jsonrpc: "2.0",
+      id: id || null,
+      error: { code: -32600, message: "Invalid Request" }
+    };
+  }
+
+  try {
+    switch (method) {
+      case "initialize":
+        // Initialize session
+        sessions.set(sessionId, {
+          id: sessionId,
+          protocolVersion: params?.protocolVersion || "2024-11-05",
+          capabilities: params?.capabilities || {},
+          clientInfo: params?.clientInfo || {}
+        });
+        
+        log(`📋 Session initialized: ${sessionId}`);
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            protocolVersion: "2024-11-05",
+            capabilities,
+            serverInfo,
+            instructions: "Calculator MCP Server - Use tools to perform arithmetic operations"
+          }
+        };
+
+      case "tools/list":
+        log(`🔧 Tools list requested`);
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: { tools }
+        };
+
+      case "tools/call":
+        const { name, arguments: args } = params;
+        log(`⚡ Tool called: ${name}`, args);
+        
+        let result;
+        switch (name) {
+          case "add":
+            result = add(args.a, args.b);
+            break;
+          case "subtract":
+            result = subtract(args.a, args.b);
+            break;
+          case "multiply":
+            result = multiply(args.a, args.b);
+            break;
+          case "divide":
+            result = divide(args.a, args.b);
+            break;
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
+        
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {
+            content: [
+              {
+                type: "text",
+                text: `The result is: ${result}`
+              }
+            ]
+          }
+        };
+
+      default:
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32601, message: "Method not found" }
+        };
+    }
+  } catch (error) {
+    log(`❌ Error processing request: ${error.message}`);
+    return {
+      jsonrpc: "2.0",
+      id,
+      error: { code: -32603, message: "Internal error", data: error.message }
+    };
+  }
+}
+
+export default function handler(req, res) {
+  // Enhanced CORS for MCP
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id');
+  res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
+  res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+
+  log(`🌐 ${req.method} /api/mcp - ${req.headers['user-agent']}`);
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  // Get or create session ID
+  let sessionId = req.headers['mcp-session-id'];
+  if (!sessionId) {
+    sessionId = uuidv4();
+    res.setHeader('Mcp-Session-Id', sessionId);
+  }
+
+  if (req.method === 'POST') {
+    // Handle JSON-RPC messages
+    const body = req.body;
+    
+    // Support batch requests
+    if (Array.isArray(body)) {
+      const responses = body.map(request => handleJsonRpc(request, sessionId));
+      log(`📦 Batch response sent`, responses);
+      res.json(responses);
+    } else {
+      const response = handleJsonRpc(body, sessionId);
+      log(`📤 Single response sent`, response);
+      res.json(response);
+    }
+  } else if (req.method === 'GET') {
+    // SSE stream for server-to-client communication
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Mcp-Session-Id', sessionId);
+    
+    log(`📡 SSE stream opened for session: ${sessionId}`);
+    
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({
+      jsonrpc: "2.0",
+      method: "server/ready",
+      params: { sessionId }
+    })}\n\n`);
+    
+    // Keep connection alive
+    const keepAlive = setInterval(() => {
+      res.write(`data: ${JSON.stringify({
+        jsonrpc: "2.0",
+        method: "ping",
+        params: { timestamp: new Date().toISOString() }
+      })}\n\n`);
+    }, 30000);
+    
+    // Cleanup on client disconnect
+    req.on('close', () => {
+      clearInterval(keepAlive);
+      log(`🔌 SSE stream closed for session: ${sessionId}`);
+    });
+  } else {
+    res.status(405).json({
+      jsonrpc: "2.0",
+      error: { code: -32601, message: "Method not allowed" }
+    });
+  }
+}
