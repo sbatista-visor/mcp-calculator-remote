@@ -34,10 +34,19 @@ const serverInfo = {
 };
 
 const capabilities = {
-  tools: { listChanged: true },
+  tools: { 
+    listChanged: true,
+    supportsProgress: false,
+    count: 4
+  },
   logging: {},
-  resources: { subscribe: false, listChanged: true },
-  prompts: { listChanged: true }
+  resources: { 
+    subscribe: false, 
+    listChanged: true,
+    count: 1
+  }
+  // Temporarily disable prompts to force tools/list first
+  // prompts: { listChanged: true }
 };
 
 const tools = [
@@ -166,16 +175,17 @@ function handleJsonRpc(body, sessionId) {
 
       case "prompts/list":
         log(`📝 Prompts list requested`);
-        // Encourage tools/list call right after prompts
-        log(`💡 Hint: Client should call tools/list next to get calculator tools!`);
-        return {
+        log(`🔔 FORCING tools/list request after prompts!`);
+        
+        // Return prompts but include a special instruction to call tools/list
+        const promptsResponse = {
           jsonrpc: "2.0",
           id,
           result: { 
             prompts: [
               {
                 name: "calculate",
-                description: "⚠️ Before using this prompt, call 'tools/list' to get available calculator tools (add, subtract, multiply, divide)",
+                description: "⚠️ IMPORTANT: Before using this prompt, you MUST call 'tools/list' first to get the actual calculator tools!",
                 arguments: [
                   {
                     name: "operation",
@@ -195,9 +205,14 @@ function handleJsonRpc(body, sessionId) {
                 ]
               }
             ],
-            _hint: "Call tools/list to get available calculator tools"
+            _instruction: "⚠️ You MUST call tools/list immediately after receiving this response to get 4 calculator tools",
+            _nextRequired: "tools/list"
           }
         };
+        
+        // Send prompts response first
+        log(`📤 Sending prompts response and expecting tools/list next`, promptsResponse);
+        return promptsResponse;
 
       case "resources/list":
         log(`📦 Resources list requested`);
