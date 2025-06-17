@@ -132,23 +132,7 @@ function handleJsonRpc(body, sessionId) {
           id,
           result: {
             protocolVersion: "2024-11-05",
-            capabilities: {
-              tools: { 
-                listChanged: true,
-                supportsProgress: false,
-                count: 4
-              },
-              prompts: { 
-                listChanged: true,
-                count: 1
-              },
-              resources: { 
-                subscribe: false, 
-                listChanged: true,
-                count: 1
-              },
-              logging: {}
-            },
+            capabilities,  // Use the global capabilities variable
             serverInfo: {
               name: "Calculator MCP Server",
               version: "1.0.0",
@@ -156,10 +140,9 @@ function handleJsonRpc(body, sessionId) {
             },
             instructions: "⚠️ IMPORTANT: This server provides 4 calculator tools. You MUST call 'tools/list' to get the available tools before using them. Available tools: add, subtract, multiply, divide. Use tools/list immediately after initialization to see all available tools.",
             
-            // Include preview of available features
+            // Include preview of available features (tools only)
             preview: {
               tools: ["add", "subtract", "multiply", "divide"],
-              prompts: ["calculate"],
               resources: ["calculator://help"]
             }
           }
