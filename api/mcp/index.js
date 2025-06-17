@@ -126,16 +126,19 @@ function handleJsonRpc(body, sessionId) {
             capabilities: {
               tools: { 
                 listChanged: true,
-                supportsProgress: false
-              },
-              logging: {},
-              resources: { 
-                subscribe: false, 
-                listChanged: true 
+                supportsProgress: false,
+                count: 4
               },
               prompts: { 
-                listChanged: true 
-              }
+                listChanged: true,
+                count: 1
+              },
+              resources: { 
+                subscribe: false, 
+                listChanged: true,
+                count: 1
+              },
+              logging: {}
             },
             serverInfo: {
               name: "Calculator MCP Server",
@@ -275,7 +278,11 @@ function handleJsonRpc(body, sessionId) {
         return {
           jsonrpc: "2.0",
           id,
-          result: {}
+          result: {
+            status: "ready",
+            message: "Server initialized successfully. Tools available for use.",
+            availableEndpoints: ["tools/list", "tools/call", "prompts/list", "resources/list"]
+          }
         };
         
       case "ping":
@@ -307,12 +314,12 @@ function handleJsonRpc(body, sessionId) {
 export default function handler(req, res) {
   // Enhanced CORS for MCP
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id');
   res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
 
-  log(`🌐 ${req.method} /api/mcp - ${req.headers['user-agent']}`);
+  log(`🌐 ${req.method} /api/mcp - ${req.headers['user-agent']} - Content-Type: ${req.headers['content-type']}`);
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
