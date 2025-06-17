@@ -1,0 +1,18 @@
+{
+  "name": "calculator-mcp-remote",
+  "version": "1.0.0",
+  "description": "Calculator MCP server for URL integration",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["mcp", "calculator", "remote", "http"],
+  "author": "",
+  "license": "MIT"
+}

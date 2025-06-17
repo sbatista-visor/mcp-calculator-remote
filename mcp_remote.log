@@ -1,0 +1,87 @@
+[2025-06-17T04:23:13.310Z] 🚀 Calculator MCP Remote Server started
+[2025-06-17T04:23:13.312Z] 📍 Server running on http://localhost:3000
+[2025-06-17T04:23:13.313Z] 🔗 Use this URL for Claude integration: http://localhost:3000
+[2025-06-17T04:23:31.616Z] 📡 GET /
+Data: {
+  "headers": {
+    "host": "localhost:3000",
+    "connection": "keep-alive",
+    "sec-ch-ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "upgrade-insecure-requests": "1",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "sec-fetch-site": "none",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-user": "?1",
+    "sec-fetch-dest": "document",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "if-none-match": "W/\"169-lH750Ehp+bmmWo2EiPWV87tUYz8\""
+  },
+  "body": {},
+  "query": {}
+}
+================================================================================
+[2025-06-17T04:23:31.618Z] 📤 Sending server info
+Data: {
+  "name": "Calculator MCP Server",
+  "version": "1.0.0",
+  "protocol": "mcp/2024-11-05",
+  "status": "ready",
+  "capabilities": {
+    "tools": {
+      "listChanged": true
+    },
+    "logging": {},
+    "resources": {},
+    "prompts": {}
+  },
+  "tools": [
+    {
+      "name": "add",
+      "description": "Add two numbers together"
+    },
+    {
+      "name": "subtract",
+      "description": "Subtract the second number from the first"
+    },
+    {
+      "name": "multiply",
+      "description": "Multiply two numbers together"
+    },
+    {
+      "name": "divide",
+      "description": "Divide the first number by the second"
+    }
+  ],
+  "endpoints": {
+    "initialize": "POST /initialize",
+    "tools_list": "POST /tools/list",
+    "tools_call": "POST /tools/call"
+  },
+  "message": "Calculator MCP Server - Ready for remote integration"
+}
+================================================================================
+[2025-06-17T04:23:31.649Z] 📡 GET /favicon.ico
+Data: {
+  "headers": {
+    "host": "localhost:3000",
+    "connection": "keep-alive",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "sec-ch-ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "no-cors",
+    "sec-fetch-dest": "image",
+    "referer": "http://localhost:3000/",
+    "accept-encoding": "gzip, deflate, br, zstd",
+    "accept-language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7"
+  },
+  "body": {},
+  "query": {}
+}
+================================================================================
