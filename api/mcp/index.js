@@ -272,7 +272,11 @@ function handleJsonRpc(body, sessionId) {
       // Add support for other common MCP methods
       case "notifications/initialized":
         log(`📢 Initialized notification received`);
-        return null; // Notifications don't return responses
+        return {
+          jsonrpc: "2.0",
+          id,
+          result: {}
+        };
         
       case "ping":
         log(`🏓 Ping received`);
@@ -336,13 +340,8 @@ export default function handler(req, res) {
       res.json(responses);
     } else {
       const response = handleJsonRpc(body, sessionId);
-      if (response !== null) {
-        log(`📤 Single response sent`, response);
-        res.json(response);
-      } else {
-        // Notification - no response needed
-        res.status(204).end();
-      }
+      log(`📤 Single response sent`, response);
+      res.json(response);
     }
   } else if (req.method === 'GET') {
     // SSE stream for server-to-client communication
