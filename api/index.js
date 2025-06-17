@@ -31,37 +31,37 @@ export default function handler(req, res) {
 
   // POST 요청 시 MCP 표준에 맞는 JSON-RPC 2.0 응답
   if (req.method === 'POST') {
-    // MCP over HTTP는 JSON-RPC 2.0를 사용할 수 있음
+    // MCP 초기화 플로우를 위한 응답
     const mcpResponse = {
       jsonrpc: "2.0",
       id: req.body?.id || "handshake",
       result: {
-        protocolVersion: "2024-11-05",
+        // MCP 서버 정보
         serverInfo: {
           name: "Calculator MCP Server",
           version: "1.0.0"
         },
+        // MCP 프로토콜 버전
+        protocolVersion: "2024-11-05",
+        // 지원하는 기능들
         capabilities: {
           tools: { listChanged: true },
           logging: {},
           resources: {},
           prompts: {}
-        }
-      },
-      // MCP specific fields
-      mcp: {
-        protocol: "mcp/2024-11-05",
-        transport: "http",
-        endpoints: {
-          initialize: "/api/initialize",
-          tools_list: "/api/tools-list", 
-          tools_call: "/api/tools-call"
         },
-        ready: true
+        // 초기화 완료를 알리는 플래그
+        initialized: false,
+        // 다음 단계 지시
+        nextStep: {
+          method: "initialize",
+          endpoint: "/api/initialize",
+          required: true
+        }
       }
     };
     
-    log("📤 Sending MCP JSON-RPC handshake response", mcpResponse);
+    log("📤 Sending MCP discovery response", mcpResponse);
     res.json(mcpResponse);
     return;
   }
