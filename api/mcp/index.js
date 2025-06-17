@@ -95,6 +95,8 @@ const tools = [
 function handleJsonRpc(body, sessionId) {
   const { jsonrpc, id, method, params } = body;
   
+  log(`🔍 Processing method: ${method}`, { id, params });
+  
   // Validate JSON-RPC 2.0
   if (jsonrpc !== "2.0") {
     return {
@@ -170,11 +172,25 @@ function handleJsonRpc(body, sessionId) {
           }
         };
 
-      default:
+      // Add support for other common MCP methods
+      case "notifications/initialized":
+        log(`📢 Initialized notification received`);
+        return null; // Notifications don't return responses
+        
+      case "ping":
+        log(`🏓 Ping received`);
         return {
           jsonrpc: "2.0",
           id,
-          error: { code: -32601, message: "Method not found" }
+          result: { status: "pong" }
+        };
+
+      default:
+        log(`❓ Unknown method: ${method}`, { id, params });
+        return {
+          jsonrpc: "2.0",
+          id,
+          error: { code: -32601, message: `Method not found: ${method}` }
         };
     }
   } catch (error) {
@@ -239,18 +255,31 @@ export default function handler(req, res) {
       params: { sessionId }
     })}\n\n`);
     
-    // Keep connection alive
+    // Shorter keepalive to avoid Vercel timeout
     const keepAlive = setInterval(() => {
       res.write(`data: ${JSON.stringify({
         jsonrpc: "2.0",
         method: "ping",
         params: { timestamp: new Date().toISOString() }
       })}\n\n`);
-    }, 30000);
+    }, 25000); // 25 seconds instead of 30
+    
+    // Auto-close after 50 seconds to avoid Vercel timeout
+    const autoClose = setTimeout(() => {
+      clearInterval(keepAlive);
+      res.write(`data: ${JSON.stringify({
+        jsonrpc: "2.0",
+        method: "server/closing",
+        params: { reason: "timeout_prevention" }
+      })}\n\n`);
+      res.end();
+      log(`⏰ SSE stream auto-closed for session: ${sessionId}`);
+    }, 50000);
     
     // Cleanup on client disconnect
     req.on('close', () => {
       clearInterval(keepAlive);
+      clearTimeout(autoClose);
       log(`🔌 SSE stream closed for session: ${sessionId}`);
     });
   } else {
