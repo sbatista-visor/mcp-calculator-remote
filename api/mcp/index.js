@@ -125,7 +125,7 @@ function handleJsonRpc(body, sessionId) {
             protocolVersion: "2024-11-05",
             capabilities,
             serverInfo,
-            instructions: "Calculator MCP Server - Use tools to perform arithmetic operations"
+            instructions: "Calculator MCP Server - Ready! Use tools: add, subtract, multiply, divide"
           }
         };
 
@@ -302,6 +302,8 @@ export default function handler(req, res) {
     // Handle JSON-RPC messages
     const body = req.body;
     
+    log(`📨 Request body:`, body);
+    
     // Support batch requests
     if (Array.isArray(body)) {
       const responses = body.map(request => handleJsonRpc(request, sessionId));
@@ -309,8 +311,13 @@ export default function handler(req, res) {
       res.json(responses);
     } else {
       const response = handleJsonRpc(body, sessionId);
-      log(`📤 Single response sent`, response);
-      res.json(response);
+      if (response !== null) {
+        log(`📤 Single response sent`, response);
+        res.json(response);
+      } else {
+        // Notification - no response needed
+        res.status(204).end();
+      }
     }
   } else if (req.method === 'GET') {
     // SSE stream for server-to-client communication
