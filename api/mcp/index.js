@@ -138,12 +138,20 @@ function handleJsonRpc(body, sessionId) {
               version: "1.0.0",
               description: "A mathematical calculator supporting add, subtract, multiply, divide operations"
             },
-            instructions: "⚠️ IMPORTANT: This server provides 4 calculator tools. You MUST call 'tools/list' to get the available tools before using them. Available tools: add, subtract, multiply, divide. Use tools/list immediately after initialization to see all available tools.",
+            instructions: "🧮 Calculator MCP Server Ready! Available tools: add, subtract, multiply, divide. Server will respond to both tools/list requests and direct calculation requests.",
             
             // Include preview of available features (tools only)
             preview: {
               tools: ["add", "subtract", "multiply", "divide"],
               resources: ["calculator://help"]
+            },
+            
+            // Include basic tool info directly in initialize for immediate use
+            availableTools: {
+              add: "Add two numbers together",
+              subtract: "Subtract second number from first",
+              multiply: "Multiply two numbers together", 
+              divide: "Divide first number by second"
             }
           }
         };
@@ -282,10 +290,17 @@ function handleJsonRpc(body, sessionId) {
           id,
           result: {
             status: "ready",
-            message: "⚠️ Calculator server ready! Call 'tools/list' immediately to get 4 available tools (add, subtract, multiply, divide)",
+            message: "⚠️ Calculator server ready! 4 tools available: add, subtract, multiply, divide",
             nextAction: "tools/list",
             toolCount: 4,
-            availableEndpoints: ["tools/list", "tools/call", "prompts/list", "resources/list"]
+            availableEndpoints: ["tools/list", "tools/call"],
+            // Include tools directly to ensure Claude gets them
+            previewTools: [
+              { name: "add", description: "Add two numbers" },
+              { name: "subtract", description: "Subtract two numbers" },
+              { name: "multiply", description: "Multiply two numbers" },
+              { name: "divide", description: "Divide two numbers" }
+            ]
           }
         };
         
