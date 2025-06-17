@@ -104,10 +104,14 @@ const tools = [
 function handleJsonRpc(body, sessionId) {
   const { jsonrpc, id, method, params } = body;
   
-  log(`🔍 Processing method: ${method}`, { id, params });
+  // Check if this is a notification (no id field)
+  const isNotification = !('id' in body);
+  
+  log(`🔍 Processing ${isNotification ? 'notification' : 'request'}: ${method}`, { id, params });
   
   // Validate JSON-RPC 2.0
   if (jsonrpc !== "2.0") {
+    if (isNotification) return null; // Don't respond to invalid notifications
     return {
       jsonrpc: "2.0",
       id: id || null,
@@ -170,21 +174,38 @@ function handleJsonRpc(body, sessionId) {
           result: { tools }
         };
 
-      case "prompts/list":
-        log(`📝 Prompts list requested - REDIRECTING TO TOOLS!`);
-        log(`🚫 Rejecting prompts/list and forcing tools/list instead!`);
+      case "tools/call":
+        const { name, arguments: args } = params;
+        log(`⚡ Tool called: ${name}`, args);
         
-        // Instead of returning prompts, return an error that suggests tools
+        let result;
+        switch (name) {
+          case "add":
+            result = add(args.a, args.b);
+            break;
+          case "subtract":
+            result = subtract(args.a, args.b);
+            break;
+          case "multiply":
+            result = multiply(args.a, args.b);
+            break;
+          case "divide":
+            result = divide(args.a, args.b);
+            break;
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
+        
         return {
           jsonrpc: "2.0",
           id,
-          error: {
-            code: -32601,
-            message: "Prompts not supported. Use 'tools/list' instead to get calculator tools: add, subtract, multiply, divide",
-            data: {
-              suggestion: "tools/list",
-              availableTools: ["add", "subtract", "multiply", "divide"]
-            }
+          result: {
+            content: [
+              {
+                type: "text",
+                text: `The result is: ${result}`
+              }
+            ]
           }
         };
 
@@ -229,61 +250,27 @@ function handleJsonRpc(body, sessionId) {
           };
         }
 
-      case "tools/call":
-        const { name, arguments: args } = params;
-        log(`⚡ Tool called: ${name}`, args);
-        
-        let result;
-        switch (name) {
-          case "add":
-            result = add(args.a, args.b);
-            break;
-          case "subtract":
-            result = subtract(args.a, args.b);
-            break;
-          case "multiply":
-            result = multiply(args.a, args.b);
-            break;
-          case "divide":
-            result = divide(args.a, args.b);
-            break;
-          default:
-            throw new Error(`Unknown tool: ${name}`);
-        }
-        
-        return {
-          jsonrpc: "2.0",
-          id,
-          result: {
-            content: [
-              {
-                type: "text",
-                text: `The result is: ${result}`
-              }
-            ]
-          }
-        };
-
-      // Add support for other common MCP methods
+      // Handle notifications (no response needed)
       case "notifications/initialized":
-        log(`📢 Initialized notification received`);
-        log(`🔔 SERVER REMINDER: Client should call tools/list to get 4 calculator tools!`);
+        log(`📢 Initialized notification received - ready for operation!`);
+        // Notifications MUST NOT return a response according to JSON-RPC 2.0
+        return null;
+
+      case "prompts/list":
+        log(`📝 Prompts list requested - REDIRECTING TO TOOLS!`);
+        log(`🚫 Rejecting prompts/list and forcing tools/list instead!`);
+        
+        // Return error suggesting tools instead
         return {
           jsonrpc: "2.0",
           id,
-          result: {
-            status: "ready",
-            message: "⚠️ Calculator server ready! 4 tools available: add, subtract, multiply, divide",
-            nextAction: "tools/list",
-            toolCount: 4,
-            availableEndpoints: ["tools/list", "tools/call"],
-            // Include tools directly to ensure Claude gets them
-            previewTools: [
-              { name: "add", description: "Add two numbers" },
-              { name: "subtract", description: "Subtract two numbers" },
-              { name: "multiply", description: "Multiply two numbers" },
-              { name: "divide", description: "Divide two numbers" }
-            ]
+          error: {
+            code: -32601,
+            message: "Prompts not supported. Use 'tools/list' instead to get calculator tools: add, subtract, multiply, divide",
+            data: {
+              suggestion: "tools/list",
+              availableTools: ["add", "subtract", "multiply", "divide"]
+            }
           }
         };
         
@@ -297,6 +284,7 @@ function handleJsonRpc(body, sessionId) {
 
       default:
         log(`❓ Unknown method: ${method}`, { id, params });
+        if (isNotification) return null; // Don't respond to unknown notifications
         return {
           jsonrpc: "2.0",
           id,
@@ -305,6 +293,7 @@ function handleJsonRpc(body, sessionId) {
     }
   } catch (error) {
     log(`❌ Error processing request: ${error.message}`);
+    if (isNotification) return null; // Don't respond to notification errors
     return {
       jsonrpc: "2.0",
       id,
@@ -328,13 +317,13 @@ export default function handler(req, res) {
     return;
   }
 
-  // Get or create session ID
-  let sessionId = req.headers['mcp-session-id'];
+  // Get or create session ID (MCP spec: Mcp-Session-Id header)
+  let sessionId = req.headers['mcp-session-id']; // Read from request header (lowercase)
   if (!sessionId || req.body?.method === 'initialize') {
     // Always create new session for initialize requests
     sessionId = uuidv4();
   }
-  res.setHeader('Mcp-Session-Id', sessionId);
+  res.setHeader('Mcp-Session-Id', sessionId); // Set response header (correct case)
 
   if (req.method === 'POST') {
     // Handle JSON-RPC messages
@@ -349,8 +338,15 @@ export default function handler(req, res) {
       res.json(responses);
     } else {
       const response = handleJsonRpc(body, sessionId);
-      log(`📤 Single response sent`, response);
-      res.json(response);
+      
+      // If response is null (notification), send 204 No Content
+      if (response === null) {
+        log(`📢 Notification processed - no response sent`);
+        res.status(204).end();
+      } else {
+        log(`📤 Single response sent`, response);
+        res.json(response);
+      }
     }
   } else if (req.method === 'GET') {
     // SSE stream for server-to-client communication
