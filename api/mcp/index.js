@@ -3,8 +3,31 @@
 
 import { v4 as uuidv4 } from 'uuid';
 
-// Session management
+// Enhanced Session management with initialization state
 const sessions = new Map();
+
+// Session state class
+class MCPSession {
+  constructor(id) {
+    this.id = id;
+    this.initialized = false;  // 핵심: 초기화 상태 추적
+    this.toolsReady = false;   // tools/list 호출 가능 상태
+    this.createdAt = new Date().toISOString();
+    this.protocolVersion = "2024-11-05";
+    this.capabilities = {};
+    this.clientInfo = {};
+  }
+
+  markInitialized() {
+    this.initialized = true;
+    this.toolsReady = true;  // notifications/initialized 후 tools 준비 완료
+    log(`🟢 Session ${this.id} fully initialized and ready for tools/list`);
+  }
+
+  isReady() {
+    return this.initialized && this.toolsReady;
+  }
+}
 
 // Logging function
 function log(message, data = null) {
@@ -27,26 +50,12 @@ function divide(a, b) {
   return a / b;
 }
 
-// MCP Server capabilities
-const serverInfo = {
-  name: "Calculator MCP Server",
-  version: "1.0.0"
-};
-
-const capabilities = {
+// MCP Server capabilities - 학습한 대로 tools만 명확히 선언
+const strictCapabilities = {
   tools: { 
-    listChanged: true,
-    supportsProgress: false,
-    count: 4
-  },
-  logging: {},
-  resources: { 
-    subscribe: false, 
-    listChanged: true,
-    count: 1
+    listChanged: true
   }
-  // Temporarily disable prompts to force tools/list first
-  // prompts: { listChanged: true }
+  // 다른 모든 capabilities 제거하여 클라이언트가 tools/list를 반드시 호출하도록 강제
 };
 
 const tools = [
@@ -122,58 +131,87 @@ function handleJsonRpc(body, sessionId) {
   try {
     switch (method) {
       case "initialize":
-        // Initialize session
-        sessions.set(sessionId, {
-          id: sessionId,
-          protocolVersion: params?.protocolVersion || "2024-11-05",
-          capabilities: params?.capabilities || {},
-          clientInfo: params?.clientInfo || {}
+        // Create new session with proper state management
+        const session = new MCPSession(sessionId);
+        session.protocolVersion = params?.protocolVersion || "2024-11-05";
+        session.capabilities = params?.capabilities || {};
+        session.clientInfo = params?.clientInfo || {};
+        
+        sessions.set(sessionId, session);
+        
+        log(`📋 NEW SESSION CREATED: ${sessionId}`, {
+          clientInfo: session.clientInfo,
+          protocolVersion: session.protocolVersion
         });
-        
-        log(`📋 Session initialized: ${sessionId}`, params);
-        
-        // 매우 엄격한 tools-only capabilities - 다른 모든 기능 제거
-        const finalCapabilities = {
-          tools: { 
-            listChanged: true
-          }
-          // logging, resources, prompts 모두 제거
-        };
-        
-        log(`🔍 STRICT TOOLS-ONLY CAPABILITIES:`, finalCapabilities);
         
         const initResponse = {
           jsonrpc: "2.0",
           id,
           result: {
             protocolVersion: "2024-11-05",
-            capabilities: finalCapabilities,
+            capabilities: strictCapabilities,  // 학습한 대로 엄격한 capabilities
             serverInfo: {
               name: "Calculator MCP Server",
               version: "1.0.0",
-              description: "Mathematical calculator with 4 tools: add, subtract, multiply, divide"
+              description: "Mathematical calculator with 4 operations"
             }
-            // 다른 모든 필드 제거하여 클라이언트가 tools/list를 호출하도록 강제
           }
         };
         
-        log(`🔍 STRICT INITIALIZE RESPONSE:`, finalCapabilities);
-        log(`📤 MINIMAL Initialize response to force tools/list:`, initResponse);
+        log(`🔍 STRICT CAPABILITIES SENT:`, strictCapabilities);
+        log(`📤 Initialize response sent`, initResponse);
         
         return initResponse;
 
       case "tools/list":
-        log(`🔧 Tools list requested - THIS SHOULD ALWAYS BE CALLED!`);
-        log(`🔧 Session ID: ${sessionId}, Request ID: ${id}`);
+        const session = sessions.get(sessionId);
+        if (!session) {
+          log(`❌ tools/list request for unknown session: ${sessionId}`);
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32002, message: "Session not found" }
+          };
+        }
+        
+        if (!session.isReady()) {
+          log(`❌ tools/list called before initialization complete for session: ${sessionId}`);
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: { 
+              code: -32002, 
+              message: "Request before initialization complete",
+              data: {
+                initialized: session.initialized,
+                toolsReady: session.toolsReady
+              }
+            }
+          };
+        }
+        
+        log(`🔧 ✅ Tools list requested for READY session: ${sessionId}`);
+        
         const toolsResponse = {
           jsonrpc: "2.0",
           id,
           result: { tools }
         };
-        log(`🔧 Tools list response:`, toolsResponse);
+        
+        log(`🔧 ✅ Tools list response sent:`, toolsResponse);
         return toolsResponse;
 
       case "tools/call":
+        const toolSession = sessions.get(sessionId);
+        if (!toolSession || !toolSession.isReady()) {
+          log(`❌ tools/call before initialization complete for session: ${sessionId}`);
+          return {
+            jsonrpc: "2.0",
+            id,
+            error: { code: -32002, message: "Request before initialization complete" }
+          };
+        }
+        
         const { name, arguments: args } = params;
         log(`⚡ Tool called: ${name}`, args);
         
@@ -249,9 +287,15 @@ function handleJsonRpc(body, sessionId) {
           };
         }
 
-      // Handle notifications (no response needed)
+      // 핵심 수정: notifications/initialized 처리 강화
       case "notifications/initialized":
-        log(`📢 Initialized notification received - ready for operation!`);
+        const currentSession = sessions.get(sessionId);
+        if (currentSession) {
+          currentSession.markInitialized();  // 상태 변경!
+          log(`📢 INITIALIZATION COMPLETE! Session ${sessionId} ready for tools/list`);
+        } else {
+          log(`❌ notifications/initialized for unknown session: ${sessionId}`);
+        }
         // Notifications MUST NOT return a response according to JSON-RPC 2.0
         return null;
 
