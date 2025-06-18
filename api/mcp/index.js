@@ -6,7 +6,19 @@ import { v4 as uuidv4 } from 'uuid';
 // Enhanced Session management with initialization state
 const sessions = new Map();
 
-// Session state class
+// Logging function
+function log(message, data = null) {
+  const timestamp = new Date().toISOString();
+  const logEntry = `[${timestamp}] ${message}`;
+  
+  if (data) {
+    console.log(`${logEntry}\nData:`, JSON.stringify(data, null, 2));
+  } else {
+    console.log(logEntry);
+  }
+}
+
+// Session state class (log 함수 정의 후 이동)
 class MCPSession {
   constructor(id) {
     this.id = id;
@@ -26,18 +38,6 @@ class MCPSession {
 
   isReady() {
     return this.initialized && this.toolsReady;
-  }
-}
-
-// Logging function
-function log(message, data = null) {
-  const timestamp = new Date().toISOString();
-  const logEntry = `[${timestamp}] ${message}`;
-  
-  if (data) {
-    console.log(`${logEntry}\nData:`, JSON.stringify(data, null, 2));
-  } else {
-    console.log(logEntry);
   }
 }
 
