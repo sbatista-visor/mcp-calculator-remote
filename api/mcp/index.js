@@ -358,7 +358,7 @@ export default function handler(req, res) {
   // Enhanced CORS for MCP
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, x-session-id');
   res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
 
@@ -375,48 +375,64 @@ export default function handler(req, res) {
     return;
   }
 
-  // Get or create session ID (MCP spec: Mcp-Session-Id header)
-  let sessionId = req.headers['mcp-session-id']; // Read from request header (lowercase)
+  // 🎯 새로운 세션 처리 로직: 더 관대하고 자동화된 방식
+  let sessionId = null;
+  let currentSession = null;
+
+  // 1. 헤더에서 세션 ID 찾기 (여러 형식 지원)
+  sessionId = req.headers['mcp-session-id'] || req.headers['x-session-id'] || req.headers['session-id'];
   
-  // 다양한 헤더 형식 시도
-  if (!sessionId) {
-    sessionId = req.headers['x-session-id'] || req.headers['session-id'] || req.headers['sessionid'];
-    if (sessionId) {
-      log(`🔍 Found session ID in alternative header: ${sessionId}`);
+  // 2. 세션 ID가 있으면 해당 세션 확인
+  if (sessionId) {
+    currentSession = sessions.get(sessionId);
+    if (currentSession) {
+      log(`✅ Found existing session: ${sessionId}`);
+    } else {
+      log(`⚠️ Session ID provided but not found: ${sessionId}`);
+      sessionId = null; // 잘못된 세션 ID이므로 null로 설정
     }
   }
-  
-  const isInitialize = req.body?.method === 'initialize';
-  
-  if (isInitialize) {
-    // Always create new session for initialize requests
-    sessionId = uuidv4();
-    log(`🆕 Creating new session for initialize: ${sessionId}`);
-  } else if (!sessionId) {
-    // Non-initialize requests without session ID should be rejected
-    log(`❌ Missing session ID for non-initialize request`);
-    res.status(400).json({
-      jsonrpc: "2.0",
-      error: {
-        code: -32600,
-        message: "Missing Mcp-Session-Id header. Initialize session first."
-      }
-    });
-    return;
-  } else {
-    // Verify session exists
-    if (!sessions.has(sessionId)) {
-      log(`❌ Invalid session ID: ${sessionId}`);
-      res.status(404).json({
-        jsonrpc: "2.0", 
-        error: {
-          code: -32002,
-          message: "Session not found. Please initialize a new session."
+
+  // 3. 세션 ID가 없거나 잘못되었으면 상황에 따라 처리
+  if (!sessionId || !currentSession) {
+    const isInitialize = req.method === 'POST' && req.body?.method === 'initialize';
+    
+    if (isInitialize) {
+      // initialize 요청이면 새 세션 생성
+      sessionId = uuidv4();
+      log(`🆕 Creating new session for initialize: ${sessionId}`);
+    } else {
+      // 다른 요청이면 가장 최근 활성 세션 사용
+      const activeSessions = Array.from(sessions.values())
+        .filter(s => s.initialized)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      if (activeSessions.length > 0) {
+        sessionId = activeSessions[0].id;
+        currentSession = activeSessions[0];
+        log(`🔄 Auto-using most recent active session: ${sessionId}`);
+      } else {
+        log(`❌ No session available for ${req.method} ${req.body?.method || 'request'}`);
+        
+        // 에러 대신 기본 응답 제공 (GET 요청의 경우)
+        if (req.method === 'GET') {
+          log(`🌊 Creating temporary session for GET request`);
+          sessionId = uuidv4();
+          currentSession = new MCPSession(sessionId);
+          currentSession.markInitialized(); // 임시 세션은 바로 초기화
+          sessions.set(sessionId, currentSession);
+        } else {
+          res.status(400).json({
+            jsonrpc: "2.0",
+            error: {
+              code: -32600,
+              message: "No active session. Please initialize first."
+            }
+          });
+          return;
         }
-      });
-      return;
+      }
     }
-    log(`✅ Using existing session: ${sessionId}`);
   }
   
   // Always set session header in response
@@ -446,41 +462,8 @@ export default function handler(req, res) {
       }
     }
   } else if (req.method === 'GET') {
-    // GET 요청에서도 세션 ID 재확인 (헤더에서 추출)
-    if (!sessionId) {
-      sessionId = req.headers['mcp-session-id'];
-      log(`🔍 GET request - extracted session ID: ${sessionId}`);
-    }
-    
-    // 세션 ID가 여전히 없으면 가장 최근 활성 세션 사용
-    if (!sessionId) {
-      // 가장 최근에 초기화된 세션 찾기
-      const activeSessions = Array.from(sessions.values())
-        .filter(s => s.initialized)
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
-      if (activeSessions.length > 0) {
-        sessionId = activeSessions[0].id;
-        log(`🔄 GET request - using most recent active session: ${sessionId}`);
-      } else {
-        log(`❌ GET request - no active sessions available`);
-        res.status(400).json({
-          error: "No active sessions. Please initialize first."
-        });
-        return;
-      }
-    }
-    
-    // 세션 존재 확인
-    if (!sessions.has(sessionId)) {
-      log(`❌ GET request - invalid session ID: ${sessionId}`);
-      res.status(404).json({
-        error: "Session not found for SSE stream"
-      });
-      return;
-    }
-    
-    // SSE stream for server-to-client communication
+    // 🌊 GET 요청은 이미 위에서 세션 처리됨 - SSE 스트림 시작
+    log(`📡 SSE stream starting for session: ${sessionId}`);
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
