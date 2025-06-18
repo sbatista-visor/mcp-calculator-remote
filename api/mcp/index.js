@@ -452,13 +452,23 @@ export default function handler(req, res) {
       log(`🔍 GET request - extracted session ID: ${sessionId}`);
     }
     
-    // 세션 ID가 여전히 없으면 에러
+    // 세션 ID가 여전히 없으면 가장 최근 활성 세션 사용
     if (!sessionId) {
-      log(`❌ GET request missing session ID completely`);
-      res.status(400).json({
-        error: "Missing Mcp-Session-Id header for SSE stream"
-      });
-      return;
+      // 가장 최근에 초기화된 세션 찾기
+      const activeSessions = Array.from(sessions.values())
+        .filter(s => s.initialized)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      if (activeSessions.length > 0) {
+        sessionId = activeSessions[0].id;
+        log(`🔄 GET request - using most recent active session: ${sessionId}`);
+      } else {
+        log(`❌ GET request - no active sessions available`);
+        res.status(400).json({
+          error: "No active sessions. Please initialize first."
+        });
+        return;
+      }
     }
     
     // 세션 존재 확인
@@ -544,6 +554,15 @@ export default function handler(req, res) {
       clearTimeout(autoClose);
       log(`🔌 SSE stream closed for session: ${sessionId}`);
     });
+  } else if (req.method === 'DELETE') {
+    // Handle session cleanup
+    if (sessionId && sessions.has(sessionId)) {
+      sessions.delete(sessionId);
+      log(`🗑️ Session deleted: ${sessionId}`);
+    } else {
+      log(`⚠️ DELETE request - session not found: ${sessionId}`);
+    }
+    res.status(200).json({ message: "Session cleanup completed" });
   } else {
     res.status(405).json({
       jsonrpc: "2.0",
