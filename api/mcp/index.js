@@ -53,7 +53,8 @@ function divide(a, b) {
 // MCP Server capabilities - 학습한 대로 tools만 명확히 선언
 const strictCapabilities = {
   tools: { 
-    listChanged: true
+    listChanged: true,
+    supportsProgress: false
   }
   // 다른 모든 capabilities 제거하여 클라이언트가 tools/list를 반드시 호출하도록 강제
 };
@@ -154,6 +155,14 @@ function handleJsonRpc(body, sessionId) {
               name: "Calculator MCP Server",
               version: "1.0.0",
               description: "Mathematical calculator with 4 operations"
+            },
+            // 🎯 핵심 추가: tools 정보를 initialize 응답에 직접 포함
+            _tools: tools,  // 클라이언트가 tools/list를 안 호출할 경우를 대비
+            _toolsPreview: {
+              add: "Add two numbers together",
+              subtract: "Subtract second number from first", 
+              multiply: "Multiply two numbers together",
+              divide: "Divide first number by second"
             }
           }
         };
@@ -491,6 +500,16 @@ export default function handler(req, res) {
       params: {
         tools: ["add", "subtract", "multiply", "divide"],
         message: "Calculator tools are ready for use"
+      }
+    })}\n\n`);
+    
+    // 🎯 강제로 tools/list 요청 유도
+    res.write(`data: ${JSON.stringify({
+      jsonrpc: "2.0",
+      method: "notifications/tools/list_changed",
+      params: {
+        message: "Please call tools/list to get available tools",
+        hint: "Server has 4 calculator tools ready"
       }
     })}\n\n`);
     
