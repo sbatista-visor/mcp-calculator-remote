@@ -132,16 +132,16 @@ function handleJsonRpc(body, sessionId) {
     switch (method) {
       case "initialize":
         // Create new session with proper state management
-        const session = new MCPSession(sessionId);
-        session.protocolVersion = params?.protocolVersion || "2024-11-05";
-        session.capabilities = params?.capabilities || {};
-        session.clientInfo = params?.clientInfo || {};
+        const initSession = new MCPSession(sessionId);
+        initSession.protocolVersion = params?.protocolVersion || "2024-11-05";
+        initSession.capabilities = params?.capabilities || {};
+        initSession.clientInfo = params?.clientInfo || {};
         
-        sessions.set(sessionId, session);
+        sessions.set(sessionId, initSession);
         
         log(`📋 NEW SESSION CREATED: ${sessionId}`, {
-          clientInfo: session.clientInfo,
-          protocolVersion: session.protocolVersion
+          clientInfo: initSession.clientInfo,
+          protocolVersion: initSession.protocolVersion
         });
         
         const initResponse = {
@@ -164,8 +164,8 @@ function handleJsonRpc(body, sessionId) {
         return initResponse;
 
       case "tools/list":
-        const session = sessions.get(sessionId);
-        if (!session) {
+        const listSession = sessions.get(sessionId);
+        if (!listSession) {
           log(`❌ tools/list request for unknown session: ${sessionId}`);
           return {
             jsonrpc: "2.0",
@@ -174,7 +174,7 @@ function handleJsonRpc(body, sessionId) {
           };
         }
         
-        if (!session.isReady()) {
+        if (!listSession.isReady()) {
           log(`❌ tools/list called before initialization complete for session: ${sessionId}`);
           return {
             jsonrpc: "2.0",
@@ -183,8 +183,8 @@ function handleJsonRpc(body, sessionId) {
               code: -32002, 
               message: "Request before initialization complete",
               data: {
-                initialized: session.initialized,
-                toolsReady: session.toolsReady
+                initialized: listSession.initialized,
+                toolsReady: listSession.toolsReady
               }
             }
           };
