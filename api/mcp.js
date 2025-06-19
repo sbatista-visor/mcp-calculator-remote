@@ -41,6 +41,63 @@ export default function handler(req, res) {
     switch (method) {
       case 'initialize':
         log("🔥 Processing initialize request", req.body);
+        
+        // 도구 정보를 initialize 응답에 직접 포함
+        const toolsForInit = [
+          {
+            name: "add",
+            description: "Add two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The first number to add" },
+                b: { type: "number", description: "The second number to add" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "subtract",
+            description: "Subtract the second number from the first",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The number to subtract from" },
+                b: { type: "number", description: "The number to subtract" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "multiply",
+            description: "Multiply two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The first number to multiply" },
+                b: { type: "number", description: "The second number to multiply" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "divide",
+            description: "Divide the first number by the second",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The dividend (number to be divided)" },
+                b: { type: "number", description: "The divisor (number to divide by)" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          }
+        ];
+        
         res.json({
           jsonrpc: "2.0",
           id: id,
@@ -56,7 +113,9 @@ export default function handler(req, res) {
               name: "calculator-server",
               version: "1.0.0"
             },
-            instructions: "Calculator MCP server with add, subtract, multiply, divide tools. Use tools/list to get available tools."
+            // Claude URL Integration을 위해 도구 정보를 직접 포함
+            tools: toolsForInit,
+            instructions: "Calculator MCP server with add, subtract, multiply, divide tools. Tools are immediately available."
           }
         });
         return;
@@ -186,16 +245,19 @@ export default function handler(req, res) {
         
       case 'notifications/initialized':
         log("🎉 Received notifications/initialized - Server is ready for tool requests");
+        // 성공적인 초기화를 확인하고 도구 사용 가능함을 명시
         res.status(200).json({
           status: "initialized",
-          message: "Server initialized successfully. Tools are available.",
+          message: "Server initialized successfully. 4 calculator tools are now available.",
           capabilities: {
             tools: { listChanged: true },
             logging: {},
             resources: {},
             prompts: {}
           },
-          nextSteps: "Server is ready for tool calls"
+          availableTools: ["add", "subtract", "multiply", "divide"],
+          nextSteps: "You can now use calculator tools directly",
+          ready: true
         });
         return;
         
