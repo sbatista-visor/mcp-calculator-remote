@@ -38,7 +38,7 @@ const calculator = {
   }
 };
 
-// Tools definition
+// Tools definition - MCP 스펙에 맞게 개선
 const tools = [
   {
     name: "add",
@@ -49,11 +49,12 @@ const tools = [
         a: { type: "number", description: "The first number to add" },
         b: { type: "number", description: "The second number to add" }
       },
-      required: ["a", "b"]
+      required: ["a", "b"],
+      additionalProperties: false
     }
   },
   {
-    name: "subtract",
+    name: "subtract", 
     description: "Subtract the second number from the first",
     inputSchema: {
       type: "object",
@@ -61,7 +62,8 @@ const tools = [
         a: { type: "number", description: "The number to subtract from" },
         b: { type: "number", description: "The number to subtract" }
       },
-      required: ["a", "b"]
+      required: ["a", "b"],
+      additionalProperties: false
     }
   },
   {
@@ -73,7 +75,8 @@ const tools = [
         a: { type: "number", description: "The first number to multiply" },
         b: { type: "number", description: "The second number to multiply" }
       },
-      required: ["a", "b"]
+      required: ["a", "b"],
+      additionalProperties: false
     }
   },
   {
@@ -85,10 +88,21 @@ const tools = [
         a: { type: "number", description: "The dividend (number to be divided)" },
         b: { type: "number", description: "The divisor (number to divide by)" }
       },
-      required: ["a", "b"]
+      required: ["a", "b"],
+      additionalProperties: false
     }
   }
 ];
+
+// Server capabilities - MCP 스펙 준수
+const serverCapabilities = {
+  tools: { 
+    listChanged: true 
+  },
+  logging: {},
+  resources: {},
+  prompts: {}
+};
 
 // Enhanced CORS for MCP
 app.use(cors({
@@ -104,6 +118,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use((req, res, next) => {
   res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+  res.setHeader('Cache-Control', 'no-cache');
   next();
 });
 
@@ -117,28 +132,26 @@ app.use((req, res, next) => {
   next();
 });
 
-// GET / - Server info
+// GET / - Server info (Claude URL Integration에서 먼저 호출)
 app.get('/', (req, res) => {
   const response = {
     name: "Calculator MCP Server",
     version: "1.0.0",
     protocol: "mcp/2024-11-05",
     status: "ready",
-    capabilities: {
-      tools: { listChanged: true },
-      logging: {},
-      resources: {},
-      prompts: {}
-    },
-    tools: tools.map(tool => ({
+    capabilities: serverCapabilities,
+    // Claude URL Integration이 tools를 인식할 수 있도록 명시적으로 제공
+    availableTools: tools.map(tool => ({
       name: tool.name,
       description: tool.description
     })),
     endpoints: {
       initialize: "POST /initialize",
       tools_list: "POST /tools/list", 
-      tools_call: "POST /tools/call"
+      tools_call: "POST /tools/call",
+      notifications: "POST / (with method field)"
     },
+    instructions: "Use POST /tools/list to get detailed tool schemas, then POST /tools/call to execute tools",
     message: "Calculator MCP Server - Ready for remote integration"
   };
   
@@ -155,17 +168,12 @@ app.post('/initialize', (req, res) => {
     id: req.body.id,
     result: {
       protocolVersion: "2024-11-05",
-      capabilities: {
-        tools: { listChanged: true },
-        logging: {},
-        resources: {},
-        prompts: {}
-      },
+      capabilities: serverCapabilities,
       serverInfo: {
         name: "calculator-server",
         version: "1.0.0"
       },
-      instructions: "Calculator MCP server with add, subtract, multiply, divide tools"
+      instructions: "Calculator MCP server with add, subtract, multiply, divide tools. Use tools/list to get available tools."
     }
   };
   
@@ -179,7 +187,7 @@ app.post('/tools/list', (req, res) => {
   
   const response = {
     jsonrpc: "2.0",
-    id: req.body.id,
+    id: req.body.id || 1,
     result: {
       tools: tools
     }
@@ -270,8 +278,14 @@ app.post('/', (req, res) => {
     case 'tools/call':
       return app._router.handle({ ...req, url: '/tools/call', method: 'POST' }, res);
     case 'notifications/initialized':
-      log("🎉 Received notifications/initialized");
-      res.status(200).end();
+      log("🎉 Received notifications/initialized - Server is ready for tool requests");
+      // 성공적인 초기화 응답과 함께 도구 사용 가능 힌트 제공
+      res.status(200).json({
+        status: "initialized",
+        message: "Server initialized successfully. Tools are available via tools/list endpoint.",
+        capabilities: serverCapabilities,
+        nextSteps: "Call tools/list to get available tools"
+      });
       break;
     default:
       log(`❓ Unknown method: ${method}`);
@@ -284,6 +298,27 @@ app.post('/', (req, res) => {
         }
       });
   }
+});
+
+// 도구 목록을 직접 가져올 수 있는 GET 엔드포인트 추가
+app.get('/tools', (req, res) => {
+  log("🛠️ GET /tools - Direct tools access");
+  res.json({
+    tools: tools,
+    message: "Available calculator tools",
+    usage: "Use POST /tools/call with tool name and arguments"
+  });
+});
+
+// Health check 엔드포인트
+app.get('/health', (req, res) => {
+  res.json({
+    status: "healthy",
+    server: "calculator-server",
+    version: "1.0.0",
+    capabilities: serverCapabilities,
+    toolsAvailable: tools.length
+  });
 });
 
 // Start server
@@ -299,5 +334,11 @@ app.listen(PORT, () => {
 
 🔧 For Claude URL Integration:
    URL: http://localhost:${PORT}
+   
+📚 Available endpoints:
+   GET  /        - Server info
+   GET  /tools   - Tools list (direct access)
+   GET  /health  - Health check
+   POST /        - MCP protocol endpoints
   `);
 });
