@@ -9,6 +9,18 @@
     {
       "source": "/",
       "destination": "/api/index"
+    },
+    {
+      "source": "/tools/list",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/tools/call", 
+      "destination": "/api/index"
+    },
+    {
+      "source": "/initialize",
+      "destination": "/api/index"
     }
   ]
 }
