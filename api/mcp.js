@@ -1,6 +1,4 @@
-// SSE-based MCP server for Vercel
-const sessions = new Map();
-
+// Stateless MCP server for Vercel - No session management needed
 function log(message, data = null) {
   const timestamp = new Date().toISOString();
   const logEntry = `[${timestamp}] ${message}`;
@@ -10,10 +8,6 @@ function log(message, data = null) {
   } else {
     console.log(logEntry);
   }
-}
-
-function generateSessionId() {
-  return 'sess_' + Math.random().toString(36).substr(2, 9);
 }
 
 export default function handler(req, res) {
@@ -36,24 +30,13 @@ export default function handler(req, res) {
     return;
   }
 
-  // GET: SSE 연결 시작
+  // GET: SSE 연결 시작 (간단화)
   if (req.method === 'GET') {
-    const sessionId = req.query.session || generateSessionId();
-    
-    // SSE 헤더 설정
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     
-    log(`📡 SSE stream starting for session: ${sessionId}`);
-    
-    // 세션 저장
-    sessions.set(sessionId, {
-      id: sessionId,
-      initialized: false,
-      response: res,
-      createdAt: Date.now()
-    });
+    log(`📡 SSE stream starting`);
     
     // 초기 연결 확인 메시지
     res.write(`data: ${JSON.stringify({
@@ -61,45 +44,23 @@ export default function handler(req, res) {
       method: "notifications/message",
       params: {
         level: "info",
-        message: `SSE connection established for session ${sessionId}`
+        message: "SSE connection established"
       }
     })}\n\n`);
-    
-    log(`📡 SSE stream opened for session: ${sessionId}`);
-    
-    // 연결 종료 처리
-    req.on('close', () => {
-      log(`📡 SSE stream closed for session: ${sessionId}`);
-      sessions.delete(sessionId);
-    });
     
     return;
   }
 
-  // POST: MCP 프로토콜 메시지 처리
+  // POST: MCP 프로토콜 메시지 처리 (세션 없이)
   if (req.method === 'POST') {
     const { method, params, id } = req.body;
     
-    // 세션 ID 추출 (헤더 또는 쿼리에서)
-    const sessionId = req.headers['x-session-id'] || req.query.session || 'default-session';
-    
     log(`📥 MCP request: ${method}`, req.body);
-    
-    // 세션이 없으면 기본 세션 생성
-    if (!sessions.has(sessionId)) {
-      log(`🆕 Creating new session: ${sessionId}`);
-      sessions.set(sessionId, {
-        id: sessionId,
-        initialized: true,
-        createdAt: Date.now()
-      });
-    }
     
     switch (method) {
       case 'initialize':
         log("🔥 Processing initialize request", req.body);
         
-        // initialize 응답에 도구 포함
         const initResponse = {
           jsonrpc: "2.0",
           id: id,
@@ -115,66 +76,11 @@ export default function handler(req, res) {
               name: "calculator-server",
               version: "1.0.0"
             },
-            // 도구 정보를 직접 포함
-            tools: [
-              {
-                name: "add",
-                description: "Add two numbers together",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    a: { type: "number", description: "The first number to add" },
-                    b: { type: "number", description: "The second number to add" }
-                  },
-                  required: ["a", "b"],
-                  additionalProperties: false
-                }
-              },
-              {
-                name: "subtract",
-                description: "Subtract the second number from the first",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    a: { type: "number", description: "The number to subtract from" },
-                    b: { type: "number", description: "The number to subtract" }
-                  },
-                  required: ["a", "b"],
-                  additionalProperties: false
-                }
-              },
-              {
-                name: "multiply",
-                description: "Multiply two numbers together",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    a: { type: "number", description: "The first number to multiply" },
-                    b: { type: "number", description: "The second number to multiply" }
-                  },
-                  required: ["a", "b"],
-                  additionalProperties: false
-                }
-              },
-              {
-                name: "divide",
-                description: "Divide the first number by the second",
-                inputSchema: {
-                  type: "object",
-                  properties: {
-                    a: { type: "number", description: "The dividend (number to be divided)" },
-                    b: { type: "number", description: "The divisor (number to divide by)" }
-                  },
-                  required: ["a", "b"],
-                  additionalProperties: false
-                }
-              }
-            ],
-            instructions: "Calculator MCP server with 4 tools immediately available: add, subtract, multiply, divide"
+            instructions: "Calculator MCP server - stateless version"
           }
         };
         
-        log("✅ Initialize successful with tools included");
+        log("✅ Initialize successful");
         res.json(initResponse);
         return;
         
@@ -311,8 +217,11 @@ export default function handler(req, res) {
         
       case 'notifications/initialized':
         log("🎉 Received notifications/initialized - Server ready!");
+        res.status(200).end();
+        return;
         
-        // notifications는 응답하지 않음 (MCP 스펙)
+      case 'notifications/cancelled':
+        log("⚠️ Received notifications/cancelled - Request was cancelled");
         res.status(200).end();
         return;
         
@@ -330,17 +239,6 @@ export default function handler(req, res) {
     }
   }
 
-  // DELETE: 세션 정리
-  if (req.method === 'DELETE') {
-    const sessionId = req.query.session;
-    if (sessionId && sessions.has(sessionId)) {
-      sessions.delete(sessionId);
-      log(`🗑️ Session deleted: ${sessionId}`);
-    }
-    res.status(200).json({ message: 'Session deleted' });
-    return;
-  }
-
   // 기본 정보 응답
   res.json({
     name: "Calculator MCP Server",
@@ -352,6 +250,6 @@ export default function handler(req, res) {
       tools: { listChanged: true }
     },
     availableTools: ["add", "subtract", "multiply", "divide"],
-    message: "Calculator MCP Server - SSE ready"
+    message: "Calculator MCP Server - Stateless version for Vercel"
   });
 }
