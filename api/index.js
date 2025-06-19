@@ -39,6 +39,151 @@ export default function handler(req, res) {
     log(`📥 MCP request: ${method}`, req.body);
     
     switch (method) {
+      case 'initialize':
+        log("🔥 Processing initialize request", req.body);
+        res.json({
+          jsonrpc: "2.0",
+          id: id,
+          result: {
+            protocolVersion: "2024-11-05",
+            capabilities: {
+              tools: { listChanged: true },
+              logging: {},
+              resources: {},
+              prompts: {}
+            },
+            serverInfo: {
+              name: "calculator-server",
+              version: "1.0.0"
+            },
+            instructions: "Calculator MCP server with add, subtract, multiply, divide tools. Use tools/list to get available tools."
+          }
+        });
+        return;
+        
+      case 'tools/list':
+        log("🛠️ Processing tools/list request", req.body);
+        const tools = [
+          {
+            name: "add",
+            description: "Add two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The first number to add" },
+                b: { type: "number", description: "The second number to add" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "subtract",
+            description: "Subtract the second number from the first",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The number to subtract from" },
+                b: { type: "number", description: "The number to subtract" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "multiply",
+            description: "Multiply two numbers together",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The first number to multiply" },
+                b: { type: "number", description: "The second number to multiply" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          },
+          {
+            name: "divide",
+            description: "Divide the first number by the second",
+            inputSchema: {
+              type: "object",
+              properties: {
+                a: { type: "number", description: "The dividend (number to be divided)" },
+                b: { type: "number", description: "The divisor (number to divide by)" }
+              },
+              required: ["a", "b"],
+              additionalProperties: false
+            }
+          }
+        ];
+        
+        res.json({
+          jsonrpc: "2.0",
+          id: id,
+          result: { tools: tools }
+        });
+        return;
+        
+      case 'tools/call':
+        log("⚡ Processing tools/call request", req.body);
+        const { name, arguments: args } = req.body.params || {};
+        
+        try {
+          let result;
+          
+          switch (name) {
+            case "add":
+              result = args.a + args.b;
+              log(`➕ Addition: ${args.a} + ${args.b} = ${result}`);
+              break;
+            case "subtract":
+              result = args.a - args.b;
+              log(`➖ Subtraction: ${args.a} - ${args.b} = ${result}`);
+              break;
+            case "multiply":
+              result = args.a * args.b;
+              log(`✖️ Multiplication: ${args.a} × ${args.b} = ${result}`);
+              break;
+            case "divide":
+              if (args.b === 0) throw new Error("Division by zero is not allowed");
+              result = args.a / args.b;
+              log(`➗ Division: ${args.a} ÷ ${args.b} = ${result}`);
+              break;
+            default:
+              throw new Error(`Unknown tool: ${name}`);
+          }
+
+          res.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `The result is: ${result}`
+                }
+              ]
+            }
+          });
+        } catch (error) {
+          log(`❌ Tool call error for ${name}`, { error: error.message });
+          res.json({
+            jsonrpc: "2.0",
+            id: id,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: `Error: ${error.message}`
+                }
+              ],
+              isError: true
+            }
+          });
+        }
+        return;
+        
       case 'notifications/initialized':
         log("🎉 Received notifications/initialized - Server is ready for tool requests");
         res.status(200).json({
