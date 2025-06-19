@@ -80,7 +80,20 @@ export default function handler(req, res) {
   if (req.method === 'POST') {
     const { method, params, id } = req.body;
     
+    // 세션 ID 추출 (헤더 또는 쿼리에서)
+    const sessionId = req.headers['x-session-id'] || req.query.session || 'default-session';
+    
     log(`📥 MCP request: ${method}`, req.body);
+    
+    // 세션이 없으면 기본 세션 생성
+    if (!sessions.has(sessionId)) {
+      log(`🆕 Creating new session: ${sessionId}`);
+      sessions.set(sessionId, {
+        id: sessionId,
+        initialized: true,
+        createdAt: Date.now()
+      });
+    }
     
     switch (method) {
       case 'initialize':
