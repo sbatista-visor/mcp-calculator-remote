@@ -1,18 +1,8 @@
 {
   "version": 2,
   "functions": {
-    "api/*.js": {
-      "maxDuration": 30
+    "app/api/[transport]/route.js": {
+      "maxDuration": 60
     }
-  },
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/api/mcp",
-      "destination": "/api/mcp"
-    }
-  ]
+  }
 }
