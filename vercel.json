@@ -11,16 +11,8 @@
       "destination": "/api/index"
     },
     {
-      "source": "/tools/list",
-      "destination": "/api/index"
-    },
-    {
-      "source": "/tools/call", 
-      "destination": "/api/index"
-    },
-    {
-      "source": "/initialize",
-      "destination": "/api/index"
+      "source": "/api/mcp",
+      "destination": "/api/mcp"
     }
   ]
 }
