@@ -14,6 +14,9 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
+  res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+  res.setHeader('Cache-Control', 'no-cache');
 
   log("🛠️ Processing tools/list request", req.body);
 
@@ -33,7 +36,8 @@ export default function handler(req, res) {
             a: { type: "number", description: "The first number to add" },
             b: { type: "number", description: "The second number to add" }
           },
-          required: ["a", "b"]
+          required: ["a", "b"],
+          additionalProperties: false
         }
       },
       {
@@ -45,7 +49,8 @@ export default function handler(req, res) {
             a: { type: "number", description: "The number to subtract from" },
             b: { type: "number", description: "The number to subtract" }
           },
-          required: ["a", "b"]
+          required: ["a", "b"],
+          additionalProperties: false
         }
       },
       {
@@ -57,7 +62,8 @@ export default function handler(req, res) {
             a: { type: "number", description: "The first number to multiply" },
             b: { type: "number", description: "The second number to multiply" }
           },
-          required: ["a", "b"]
+          required: ["a", "b"],
+          additionalProperties: false
         }
       },
       {
@@ -69,20 +75,21 @@ export default function handler(req, res) {
             a: { type: "number", description: "The dividend (number to be divided)" },
             b: { type: "number", description: "The divisor (number to divide by)" }
           },
-          required: ["a", "b"]
+          required: ["a", "b"],
+          additionalProperties: false
         }
       }
     ];
 
     const response = {
       jsonrpc: "2.0", 
-      id: req.body.id,
+      id: req.body.id || 1,
       result: {
         tools: tools
       }
     };
     
-    log("📤 Sending tools/list response with 4 tools", response);
+    log("📤 Sending enhanced tools/list response with 4 tools", response);
     res.json(response);
   } else {
     res.status(405).json({ error: 'Method not allowed' });

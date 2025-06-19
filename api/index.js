@@ -19,114 +19,109 @@ export default function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
   res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
-  res.setHeader('X-MCP-Transport', 'http');
-  res.setHeader('X-MCP-Ready', 'true');
+  res.setHeader('Cache-Control', 'no-cache');
 
-  log(`📡 ${req.method} /api/index - ${req.headers['user-agent']}`);
+  log(`📡 ${req.method} /api/index`, {
+    userAgent: req.headers['user-agent'],
+    body: req.body,
+    query: req.query
+  });
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
-  // POST 요청 시 Claude URL Integration을 위한 직접적인 응답
-  if (req.method === 'POST') {
-    // Claude가 바로 사용할 수 있는 형태의 응답
-    const mcpResponse = {
-      jsonrpc: "2.0",
-      id: req.body?.id || "handshake",
-      result: {
-        // 서버 정보
-        serverInfo: {
-          name: "Calculator MCP Server",
-          version: "1.0.0",
-          description: "Mathematical calculator with basic arithmetic operations"
-        },
-        
-        // 프로토콜 정보
-        protocolVersion: "2024-11-05",
-        
-        // 기능
-        capabilities: {
-          tools: { listChanged: true },
-          logging: {},
-          resources: {},
-          prompts: {}
-        },
-        
-        // 즉시 사용 가능한 도구들
-        tools: [
-          {
-            name: "add",
-            description: "Add two numbers together",
-            inputSchema: {
-              type: "object",
-              properties: {
-                a: { type: "number", description: "First number" },
-                b: { type: "number", description: "Second number" }
-              },
-              required: ["a", "b"]
-            }
-          },
-          {
-            name: "subtract",
-            description: "Subtract second number from first number",
-            inputSchema: {
-              type: "object",
-              properties: {
-                a: { type: "number", description: "First number" },
-                b: { type: "number", description: "Second number" }
-              },
-              required: ["a", "b"]
-            }
-          },
-          {
-            name: "multiply",
-            description: "Multiply two numbers together",
-            inputSchema: {
-              type: "object",
-              properties: {
-                a: { type: "number", description: "First number" },
-                b: { type: "number", description: "Second number" }
-              },
-              required: ["a", "b"]
-            }
-          },
-          {
-            name: "divide",
-            description: "Divide first number by second number",
-            inputSchema: {
-              type: "object",
-              properties: {
-                a: { type: "number", description: "Dividend" },
-                b: { type: "number", description: "Divisor (cannot be zero)" }
-              },
-              required: ["a", "b"]
-            }
-          }
-        ],
-        
-        // 도구 호출 방법
-        toolCallEndpoint: "/api/tools-call",
-        
-        // 상태
-        status: "ready",
-        initialized: true,
-        message: "Calculator server ready. Use add, subtract, multiply, or divide tools."
-      }
-    };
+  // MCP 프로토콜 요청 처리
+  if (req.method === 'POST' && req.body?.method) {
+    const { method, id } = req.body;
     
-    log("📤 Sending all-in-one MCP response", mcpResponse);
-    res.json(mcpResponse);
-    return;
+    log(`📥 MCP request: ${method}`, req.body);
+    
+    switch (method) {
+      case 'notifications/initialized':
+        log("🎉 Received notifications/initialized - Server is ready for tool requests");
+        res.status(200).json({
+          status: "initialized",
+          message: "Server initialized successfully. Tools are available.",
+          capabilities: {
+            tools: { listChanged: true },
+            logging: {},
+            resources: {},
+            prompts: {}
+          },
+          nextSteps: "Server is ready for tool calls"
+        });
+        return;
+        
+      default:
+        log(`❓ Unknown method: ${method}`);
+        res.status(404).json({
+          jsonrpc: "2.0",
+          id: id,
+          error: {
+            code: -32601,
+            message: `Method not found: ${method}`
+          }
+        });
+        return;
+    }
   }
 
-  // GET 요청 시 상세한 서버 정보 반환
+  // GET 또는 일반 POST 요청 시 서버 정보 반환
   const tools = [
-    { name: "add", description: "Add two numbers together" },
-    { name: "subtract", description: "Subtract second number from first number" },
-    { name: "multiply", description: "Multiply two numbers together" },
-    { name: "divide", description: "Divide first number by second number" }
+    { 
+      name: "add", 
+      description: "Add two numbers together",
+      inputSchema: {
+        type: "object",
+        properties: {
+          a: { type: "number", description: "The first number to add" },
+          b: { type: "number", description: "The second number to add" }
+        },
+        required: ["a", "b"],
+        additionalProperties: false
+      }
+    },
+    { 
+      name: "subtract", 
+      description: "Subtract the second number from the first",
+      inputSchema: {
+        type: "object",
+        properties: {
+          a: { type: "number", description: "The number to subtract from" },
+          b: { type: "number", description: "The number to subtract" }
+        },
+        required: ["a", "b"],
+        additionalProperties: false
+      }
+    },
+    { 
+      name: "multiply", 
+      description: "Multiply two numbers together",
+      inputSchema: {
+        type: "object",
+        properties: {
+          a: { type: "number", description: "The first number to multiply" },
+          b: { type: "number", description: "The second number to multiply" }
+        },
+        required: ["a", "b"],
+        additionalProperties: false
+      }
+    },
+    { 
+      name: "divide", 
+      description: "Divide the first number by the second",
+      inputSchema: {
+        type: "object",
+        properties: {
+          a: { type: "number", description: "The dividend (number to be divided)" },
+          b: { type: "number", description: "The divisor (number to divide by)" }
+        },
+        required: ["a", "b"],
+        additionalProperties: false
+      }
+    }
   ];
 
   const response = {
@@ -140,17 +135,23 @@ export default function handler(req, res) {
       resources: {},
       prompts: {}
     },
-    tools,
+    // Claude URL Integration이 tools를 인식할 수 있도록 명시적으로 제공
+    availableTools: tools.map(tool => ({
+      name: tool.name,
+      description: tool.description
+    })),
     endpoints: {
       initialize: "/api/initialize",
       tools_list: "/api/tools-list", 
-      tools_call: "/api/tools-call"
+      tools_call: "/api/tools-call",
+      notifications: "POST / (with method field)"
     },
+    instructions: "Use POST /api/tools-list to get detailed tool schemas, then POST /api/tools-call to execute tools",
     deployment: "Vercel",
     message: "Calculator MCP Server - Ready for remote integration",
     timestamp: new Date().toISOString()
   };
   
-  log("📤 Sending full server info", response);
+  log("📤 Sending enhanced server info", response);
   res.json(response);
 }
