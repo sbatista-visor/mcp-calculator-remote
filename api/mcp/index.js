@@ -134,7 +134,7 @@ function handleJsonRpc(body, sessionId) {
       case "initialize":
         // Create new session with proper state management
         const initSession = new MCPSession(sessionId);
-        initSession.protocolVersion = params?.protocolVersion || "2024-11-05";
+        initSession.protocolVersion = params?.protocolVersion || "2025-06-18";
         initSession.capabilities = params?.capabilities || {};
         initSession.clientInfo = params?.clientInfo || {};
         
@@ -149,20 +149,12 @@ function handleJsonRpc(body, sessionId) {
           jsonrpc: "2.0",
           id,
           result: {
-            protocolVersion: "2024-11-05",
-            capabilities: strictCapabilities,  // 학습한 대로 엄격한 capabilities
+            protocolVersion: "2025-06-18", // Updated to latest
+            capabilities: strictCapabilities,
             serverInfo: {
               name: "Calculator MCP Server",
-              version: "1.0.0",
-              description: "Mathematical calculator with 4 operations"
-            },
-            // 🎯 핵심 추가: tools 정보를 initialize 응답에 직접 포함
-            _tools: tools,  // 클라이언트가 tools/list를 안 호출할 경우를 대비
-            _toolsPreview: {
-              add: "Add two numbers together",
-              subtract: "Subtract second number from first", 
-              multiply: "Multiply two numbers together",
-              divide: "Divide first number by second"
+              version: "2.0.0", // Updated version
+              description: "Mathematical calculator with 4 operations - MCP 2025-06-18 compliant"
             }
           }
         };
@@ -249,9 +241,10 @@ function handleJsonRpc(body, sessionId) {
             content: [
               {
                 type: "text",
-                text: `The result is: ${result}`
+                text: `${result}`
               }
-            ]
+            ],
+            isError: false
           }
         };
 
@@ -355,12 +348,12 @@ function handleJsonRpc(body, sessionId) {
 }
 
 export default function handler(req, res) {
-  // Enhanced CORS for MCP
+  // Enhanced CORS for MCP 2025-06-18
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, x-session-id');
-  res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
-  res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, mcp-session-id, x-session-id, MCP-Protocol-Version');
+  res.setHeader('X-MCP-Server', 'calculator-server/2.0.0');
+  res.setHeader('MCP-Protocol-Version', '2025-06-18');
 
   log(`🌐 ${req.method} /api/mcp - ${req.headers['user-agent']} - Content-Type: ${req.headers['content-type']}`);
   

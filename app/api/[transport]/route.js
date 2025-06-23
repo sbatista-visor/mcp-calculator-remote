@@ -18,7 +18,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text",
-              text: `The result is: ${result}`,
+              text: `${result}`,
             },
           ],
         };
@@ -40,7 +40,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text", 
-              text: `The result is: ${result}`,
+              text: `${result}`,
             },
           ],
         };
@@ -62,7 +62,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text",
-              text: `The result is: ${result}`,
+              text: `${result}`,
             },
           ],
         };
@@ -87,7 +87,7 @@ const handler = createMcpHandler(
           content: [
             {
               type: "text",
-              text: `The result is: ${result}`,
+              text: `${result}`,
             },
           ],
         };
@@ -95,18 +95,19 @@ const handler = createMcpHandler(
     );
   },
   {
-    // Server options
+    // Server options - 2025-06-18 compliant
     serverInfo: {
       name: "calculator-server",
-      version: "1.0.0",
+      version: "2.0.0",
     },
   },
   {
     // Vercel MCP Adapter configuration
     basePath: "/api",
-    maxDuration: 60,
+    maxDuration: 300,
     verboseLogs: true,
-    disableSSE: true,  // Disable SSE to avoid Redis requirement
+    // Redis is optional for HTTP transport in 2025-06-18
+    // Only required for SSE transport
   }
 );
 

@@ -1,5 +1,5 @@
-// MCP Calculator Server - Simple POST endpoint for Claude Desktop
-// This is a simplified version that only handles HTTP POST requests (no SSE)
+// MCP Calculator Server - 2025-06-18 Specification Compliant
+// HTTP POST endpoint for Claude Desktop compatibility
 
 // Calculator functions
 function add(a, b) { return a + b; }
@@ -10,7 +10,7 @@ function divide(a, b) {
   return a / b;
 }
 
-// Tool definitions
+// Tool definitions - 2025-06-18 compliant
 const tools = [
   {
     name: "add",
@@ -62,7 +62,7 @@ const tools = [
   }
 ];
 
-// Handle JSON-RPC requests
+// Handle JSON-RPC requests - 2025-06-18 specification
 function handleJsonRpc(body) {
   const { jsonrpc, id, method, params } = body;
   
@@ -80,21 +80,21 @@ function handleJsonRpc(body) {
   try {
     switch (method) {
       case "initialize":
+        // 2025-06-18 specification compliance
         return {
           jsonrpc: "2.0",
           id,
           result: {
-            protocolVersion: "2024-11-05",
+            protocolVersion: "2025-06-18", // Updated to latest version
             capabilities: {
               tools: { 
-                listChanged: true,
-                supportsProgress: false
+                listChanged: true
               }
             },
             serverInfo: {
               name: "Calculator MCP Server",
-              version: "1.0.0",
-              description: "Mathematical calculator with 4 operations"
+              version: "2.0.0",
+              description: "Mathematical calculator with 4 operations - MCP 2025-06-18 compliant"
             }
           }
         };
@@ -128,6 +128,7 @@ function handleJsonRpc(body) {
             throw new Error(`Unknown tool: ${name}`);
         }
         
+        // 2025-06-18 supports structured tool output
         return {
           jsonrpc: "2.0",
           id,
@@ -137,7 +138,8 @@ function handleJsonRpc(body) {
                 type: "text",
                 text: `${result}`
               }
-            ]
+            ],
+            isError: false
           }
         };
 
@@ -170,12 +172,12 @@ function handleJsonRpc(body) {
 }
 
 export default function handler(req, res) {
-  // CORS headers
+  // CORS headers with MCP 2025-06-18 compliance
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-  res.setHeader('X-MCP-Server', 'calculator-server/1.0.0');
-  res.setHeader('X-MCP-Protocol-Version', '2024-11-05');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, MCP-Protocol-Version');
+  res.setHeader('X-MCP-Server', 'calculator-server/2.0.0');
+  res.setHeader('MCP-Protocol-Version', '2025-06-18'); // Required header
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -195,18 +197,21 @@ export default function handler(req, res) {
   
   console.log('Request body:', body);
   
-  // Support batch requests
+  // 2025-06-18 removed batch support, so only single requests
   if (Array.isArray(body)) {
-    const responses = body.map(request => handleJsonRpc(request)).filter(r => r !== null);
-    res.json(responses);
+    res.status(400).json({
+      jsonrpc: "2.0",
+      error: { code: -32600, message: "Batch requests not supported in MCP 2025-06-18" }
+    });
+    return;
+  }
+  
+  const response = handleJsonRpc(body);
+  
+  // If response is null (notification), send 204 No Content
+  if (response === null) {
+    res.status(204).end();
   } else {
-    const response = handleJsonRpc(body);
-    
-    // If response is null (notification), send 204 No Content
-    if (response === null) {
-      res.status(204).end();
-    } else {
-      res.json(response);
-    }
+    res.json(response);
   }
 }
