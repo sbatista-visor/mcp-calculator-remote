@@ -1,8 +1,11 @@
 {
   "version": 2,
   "functions": {
-    "app/api/[transport]/route.js": {
+    "api/mcp/index.js": {
       "maxDuration": 60
+    },
+    "api/mcp-post/index.js": {
+      "maxDuration": 30
     }
   }
 }
