@@ -106,6 +106,7 @@ const handler = createMcpHandler(
     basePath: "/api",
     maxDuration: 60,
     verboseLogs: true,
+    disableSSE: true,  // Disable SSE to avoid Redis requirement
   }
 );
 
