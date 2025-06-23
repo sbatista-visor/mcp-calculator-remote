@@ -501,28 +501,37 @@ export default function handler(req, res) {
     
     // Shorter keepalive to avoid Vercel timeout
     const keepAlive = setInterval(() => {
-      res.write(`data: ${JSON.stringify({
-        jsonrpc: "2.0",
-        method: "ping",
-        params: { timestamp: new Date().toISOString(), sessionId }
-      })}\n\n`);
-    }, 25000); // 25 seconds instead of 30
+      try {
+        res.write(`data: ${JSON.stringify({
+          jsonrpc: "2.0",
+          method: "ping",
+          params: { timestamp: new Date().toISOString(), sessionId }
+        })}\n\n`);
+      } catch (error) {
+        clearInterval(keepAlive);
+        log(`❌ Keep-alive error for session: ${sessionId}`, error.message);
+      }
+    }, 20000); // 20 seconds
     
-    // Auto-close after 45 seconds to avoid Vercel timeout
+    // Auto-close after 4.5 minutes to avoid Vercel timeout
     const autoClose = setTimeout(() => {
       clearInterval(keepAlive);
-      res.write(`data: ${JSON.stringify({
-        jsonrpc: "2.0",
-        method: "server/closing",
-        params: { 
-          reason: "timeout_prevention",
-          sessionId,
-          message: "Session remains active. Reconnect if needed."
-        }
-      })}\n\n`);
-      res.end();
+      try {
+        res.write(`data: ${JSON.stringify({
+          jsonrpc: "2.0",
+          method: "server/closing",
+          params: { 
+            reason: "timeout_prevention",
+            sessionId,
+            message: "Session remains active. Reconnect if needed."
+          }
+        })}\n\n`);
+        res.end();
+      } catch (error) {
+        log(`❌ Auto-close error for session: ${sessionId}`, error.message);
+      }
       log(`⏰ SSE stream auto-closed for session: ${sessionId}`);
-    }, 45000);
+    }, 270000); // 4.5 minutes
     
     // Cleanup on client disconnect
     req.on('close', () => {
