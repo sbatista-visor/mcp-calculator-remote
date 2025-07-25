@@ -1,0 +1,13 @@
+# Top level files & directories
+.gighub
+.env*
+.git/
+.vscode
+Dockerfile
+.gitignore
+node_modules/
+
+# Nested files & directories
+**/.next
+**/.backup
+**/.private

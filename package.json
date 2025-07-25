@@ -6,17 +6,31 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "ssh": "fnm use --install-if-missing || : && node infrastructure/package_scripts/ssh.mjs",
+    "docker_build": "fnm use --install-if-missing || : && node infrastructure/package_scripts/docker_build.mjs",
+    "docker_start": "fnm use --install-if-missing || : && node infrastructure/package_scripts/docker_start.mjs",
+    "docker_stop": "fnm use --install-if-missing || : && node infrastructure/package_scripts/docker_stop.mjs",
+    "deploy": "fnm use --install-if-missing || : && node infrastructure/package_scripts/deploy.mjs"
   },
   "dependencies": {
+    "@dotenvx/dotenvx": "^1.48.3",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@vercel/mcp-adapter": "^0.11.1",
     "next": "^15.0.0",
+    "node-ssh": "^13.2.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "@vercel/mcp-adapter": "^0.11.1",
-    "@modelcontextprotocol/sdk": "^1.0.0",
+    "tree-kill": "^1.2.2",
+    "xid-js": "^1.0.1",
     "zod": "^3.22.0"
   },
-  "keywords": ["mcp", "calculator", "vercel", "adapter"],
+  "keywords": [
+    "mcp",
+    "calculator",
+    "vercel",
+    "adapter"
+  ],
   "author": "",
   "license": "MIT"
 }
