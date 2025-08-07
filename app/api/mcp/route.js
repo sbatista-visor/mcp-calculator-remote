@@ -6,7 +6,7 @@ const handler = createMcpHandler(
     // Add Calculator Tool
     server.tool(
       "add",
-      "Add two numbers together",
+      "Add two numbers together 스",
       {
         a: z.number().describe("The first number to add"),
         b: z.number().describe("The second number to add"),
