@@ -28,7 +28,7 @@ const handler = createMcpHandler(
     // Subtract Tool
     server.tool(
       "subtract", 
-      "Subtract the second number from the first",
+      "Subtract the second number from the first 스",
       {
         a: z.number().describe("The number to subtract from"),
         b: z.number().describe("The number to subtract"),
